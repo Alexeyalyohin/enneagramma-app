@@ -60,16 +60,19 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
 
   if (state.kind === 'not-ready') {
     return (
-      <div className="mx-auto flex w-full max-w-[720px] flex-col items-center gap-4 px-4 py-20 text-center">
+      <div className="mx-auto flex w-full max-w-180 flex-col items-center gap-4 px-4 py-20 text-center">
         <p className="text-base text-foreground">Тест не завершён</p>
-        <Button render={<Link href="/test" />}>Пройти заново</Button>
+        {/* nativeButton={false}: рендерится как <a> (next/link), не <button> — см. TelegramCTA.tsx */}
+        <Button render={<Link href="/test" />} nativeButton={false}>
+          Пройти заново
+        </Button>
       </div>
     )
   }
 
   if (state.kind === 'error') {
     return (
-      <div className="mx-auto flex w-full max-w-[720px] flex-col items-center gap-4 px-4 py-20 text-center">
+      <div className="mx-auto flex w-full max-w-180 flex-col items-center gap-4 px-4 py-20 text-center">
         <TriangleAlert className="size-8 text-destructive" aria-hidden="true" />
         <p className="text-base text-foreground">{state.message}</p>
         <Button onClick={load}>Повторить</Button>
@@ -81,7 +84,7 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
   const showTelegramCta = Boolean(captureResult) || data.captured
 
   return (
-    <div className="mx-auto flex w-full max-w-[720px] flex-col gap-6 px-4 py-10 sm:py-14">
+    <div className="mx-auto flex w-full max-w-180 flex-col gap-6 px-4 py-10 sm:py-14">
       <TypePortrait title={data.title} portraitMd={data.portrait_md} shortSummary={data.short_summary} />
 
       <ConfidenceBadge confidence={data.confidence} borderline={data.borderline} runnerUp={data.runner_up} />

@@ -26,6 +26,10 @@ export function TelegramCTA({ leadId, sessionId, deepLink }: TelegramCTAProps) {
       <p className="text-sm text-foreground">Результат сохранён. Разборы приходят в Telegram.</p>
       <Button
         render={<a href={deepLink} target="_blank" rel="noopener noreferrer" onClick={handleClick} />}
+        // Рендерится как <a>, не <button> — Base UI ругается без явного
+        // nativeButton={false} (иначе он по умолчанию ждёт настоящий <button>
+        // под render и добавляет соответствующее поведение/атрибуты).
+        nativeButton={false}
         className="w-full sm:w-auto"
       >
         <Send aria-hidden="true" />

@@ -1,4 +1,15 @@
 {
+  "permissions": {
+    "allow": [
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "PowerShell(npx tsc --noEmit 2>&1)",
+      "PowerShell(npm run lint 2>&1)",
+      "PowerShell(npm run build 2>&1)",
+      "PowerShell(\"---LINT---\")",
+      "PowerShell(\"---BUILD---\")"
+    ]
+  },
   "enabledMcpjsonServers": [
     "context7",
     "supabase"
