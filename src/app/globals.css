@@ -1,26 +1,94 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
+/**
+ * Дизайн-токены «Эннеаграмма.one» (Чертёж.md, БЛОК 4 «UI/UX»).
+ * Тема одна — тёмная, без переключателя (продукт живёт в iframe Tilda,
+ * переключатель темы там не нужен).
+ *
+ * Слой 1 (:root) — сырые значения бренда.
+ * Слой 2 (@theme inline) — маппинг на семантические токены shadcn/ui
+ * (их используют уже установленные компоненты в src/components/ui) плюс
+ * собственные брендовые алиасы (brass/ink/surface) для features-компонентов.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --radius: 0.625rem;
+
+  /* Фон / поверхности */
+  --background: #0d0d0f;
+  --foreground: #edeae3;
+
+  --card: #16161a;
+  --card-foreground: #edeae3;
+
+  --popover: #16161a;
+  --popover-foreground: #edeae3;
+
+  /* Акцент — тёплая латунь */
+  --primary: #c7a15a;
+  --primary-foreground: #14110a;
+
+  --secondary: #1e1e22;
+  --secondary-foreground: #edeae3;
+
+  --muted: #1c1c20;
+  --muted-foreground: #9a968c;
+
+  --accent: #c7a15a;
+  --accent-foreground: #14110a;
+
+  --destructive: #e5484d;
+  --destructive-foreground: #fff5f5;
+
+  --border: #26262b;
+  --input: #26262b;
+  --ring: #c7a15a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Брендовые алиасы для features-компонентов (MatrixViz, портрет и т.д.) */
+  --color-brass: #c7a15a;
+  --color-brass-foreground: #14110a;
+  --color-ink: #0d0d0f;
+  --color-surface: #16161a;
+  --color-surface-foreground: #edeae3;
+
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-lora), ui-serif, Georgia, serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }
