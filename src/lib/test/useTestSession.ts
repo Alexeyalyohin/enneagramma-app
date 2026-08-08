@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { apiPost } from '@/lib/fetch-api'
+import { apiGet, apiPost } from '@/lib/fetch-api'
 import type { MatrixSnapshot, NextStep, TestProgress } from '@/lib/test-engine'
 import { clearTestState, loadTestState, saveTestState, type HistoryEntry } from './storage'
 
@@ -22,6 +22,14 @@ interface SessionResponse {
   session_id: string
   version: string
   first_block: string
+  next: NextStep
+  progress: TestProgress
+  matrix: MatrixSnapshot
+}
+
+/** Ответ GET /api/test/session/[id] — то же самое, но без version/first_block. */
+interface SessionRestoreResponse {
+  session_id: string
   next: NextStep
   progress: TestProgress
   matrix: MatrixSnapshot
@@ -119,17 +127,47 @@ export function useTestSession(): UseTestSessionResult {
     // на сервере window нет, и лишний setState здесь всё равно неизбежен.
     async function init() {
       const stored = loadTestState()
-      if (stored) {
-        setSessionId(stored.sessionId)
-        setStep(stored.step)
-        setProgress(stored.progress)
-        setMatrix(stored.matrix)
-        setHistory(stored.history)
-        setPhase('active')
+      if (!stored) {
+        await startNewSession()
         return
       }
 
-      await startNewSession()
+      // БД — источник правды (Чертёж, US-001: «F5 восстанавливает сессию из
+      // БД по session_id»), localStorage — только кэш для офлайн-случая и
+      // истории «Назад» (сервер её не хранит, там только линейные ответы).
+      const result = await apiGet<SessionRestoreResponse>(`/api/test/session/${stored.sessionId}`)
+
+      if (result.ok) {
+        setSessionId(result.data.session_id)
+        setStep(result.data.next)
+        setProgress(result.data.progress)
+        setMatrix(result.data.matrix)
+        setHistory(stored.history)
+        setPhase('active')
+        saveTestState({
+          sessionId: result.data.session_id,
+          step: result.data.next,
+          progress: result.data.progress,
+          matrix: result.data.matrix,
+          history: stored.history,
+        })
+        return
+      }
+
+      if (RESTART_CODES.has(result.error.code)) {
+        // Сервер подтверждает: сессия правда протухла — локальный снимок не спасти.
+        await startNewSession()
+        return
+      }
+
+      // Сетевая ошибка / сервер недоступен (edge case 1): не блокируем
+      // пользователя, продолжаем с последним локальным снимком как есть.
+      setSessionId(stored.sessionId)
+      setStep(stored.step)
+      setProgress(stored.progress)
+      setMatrix(stored.matrix)
+      setHistory(stored.history)
+      setPhase('active')
     }
 
     void init()

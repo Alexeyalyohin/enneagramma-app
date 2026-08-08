@@ -65,11 +65,13 @@ function ratio(current: number, previous: number): number | undefined {
 }
 
 export async function GET(request: NextRequest) {
-  const limited = enforceRateLimit(request, 'admin', RATE_LIMITS.admin)
-  if (limited) return limited
-
   try {
+    // requireAdmin() ДО rate-limit: иначе неаутентифицированные запросы жрут
+    // ту же корзину лимита, что и легитимные запросы владельца с того же IP.
     await requireAdmin()
+
+    const limited = enforceRateLimit(request, 'admin', RATE_LIMITS.admin)
+    if (limited) return limited
 
     const parsed = querySchema.safeParse({
       period: request.nextUrl.searchParams.get('period') ?? undefined,

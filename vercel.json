@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/abandon-sessions",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/retry-salebot-sync",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-deposits",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}

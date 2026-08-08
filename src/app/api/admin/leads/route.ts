@@ -33,11 +33,12 @@ const querySchema = z.object({
 })
 
 export async function GET(request: NextRequest) {
-  const limited = enforceRateLimit(request, 'admin', RATE_LIMITS.admin)
-  if (limited) return limited
-
   try {
+    // requireAdmin() ДО rate-limit — см. пояснение в api/admin/funnel/route.ts.
     await requireAdmin()
+
+    const limited = enforceRateLimit(request, 'admin', RATE_LIMITS.admin)
+    if (limited) return limited
 
     const params = request.nextUrl.searchParams
     const parsed = querySchema.safeParse({

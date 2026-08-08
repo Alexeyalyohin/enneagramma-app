@@ -39,6 +39,13 @@ export const RATE_LIMITS = {
    * Мягкий потолок стоит только чтобы кривой цикл в UI не заспамил БД.
    */
   admin: 120,
+  /**
+   * Вход владельца (`loginAction`) — в Чертеже лимита нет явно, но это
+   * единственная точка входа в админку, и в остальном проекте все публичные
+   * мутации лимитированы по IP. 8/мин — не мешает опечататься пару раз,
+   * но режет перебор пароля.
+   */
+  login: 8,
 } as const
 
 const WINDOW_MS = 60_000
@@ -111,12 +118,21 @@ export function rateLimit(key: string, limit: number, windowMs: number = WINDOW_
  * это намеренно строгий, а не разрешающий дефолт.
  */
 export function getClientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for')
+  return getClientIpFromHeaderLookup((name) => request.headers.get(name))
+}
+
+/**
+ * Тот же разбор `x-forwarded-for`/`x-real-ip`, но без `Request` — нужен
+ * Server Actions (напр. `loginAction`), у которых нет объекта запроса,
+ * только `headers()` из `next/headers`.
+ */
+export function getClientIpFromHeaderLookup(getHeader: (name: string) => string | null): string {
+  const forwarded = getHeader('x-forwarded-for')
   if (forwarded) {
     const first = forwarded.split(',')[0]?.trim()
     if (first) return first
   }
-  return request.headers.get('x-real-ip')?.trim() || 'unknown'
+  return getHeader('x-real-ip')?.trim() || 'unknown'
 }
 
 /** Стандартный 429-ответ с заголовками лимита. */

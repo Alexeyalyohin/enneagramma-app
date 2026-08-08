@@ -15,8 +15,10 @@
 import { z } from 'zod'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { logInfo, logWarn } from '@/lib/logger'
+import { RATE_LIMITS, getClientIpFromHeaderLookup, rateLimit } from '@/lib/rate-limit'
 
 const GENERIC_ERROR = 'Неверный email или пароль'
 
@@ -33,6 +35,16 @@ export interface LoginState {
 export const initialLoginState: LoginState = { error: null }
 
 export async function loginAction(_prevState: LoginState, formData: FormData): Promise<LoginState> {
+  // Единственная точка входа в админку — лимитируем попытки по IP, как и
+  // все остальные публичные мутации в проекте (Server Action, поэтому IP
+  // берём из next/headers, а не из Request).
+  const headerList = await headers()
+  const ip = getClientIpFromHeaderLookup((name) => headerList.get(name))
+  const limit = rateLimit(`login:${ip}`, RATE_LIMITS.login)
+  if (!limit.ok) {
+    return { error: 'Слишком много попыток входа. Подождите минуту и попробуйте снова' }
+  }
+
   const parsed = loginSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
