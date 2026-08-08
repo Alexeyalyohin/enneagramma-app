@@ -1,0 +1,3 @@
+# Привязка локальной папки миграций к удалённому проекту Supabase.
+# project_id — это project_ref из URL дашборда, не секрет.
+project_id = "ziukaapuxykwybjpljjg"
