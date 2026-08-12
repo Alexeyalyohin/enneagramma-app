@@ -20,8 +20,7 @@ import {
   buildMatrix,
   buildProgress,
   computeNextStep,
-  expectedQuestionId,
-  isChoiceValid,
+  isValidStepChoice,
   parseStoredAnswers,
   scoreAnswers,
 } from '@/lib/test-engine'
@@ -77,10 +76,16 @@ export async function POST(request: NextRequest) {
     const answers = parseStoredAnswers(session.answers)
 
     // Принимаем либо ожидаемый сейчас вопрос, либо переответ на уже пройденный
-    // (пользователь нажал «Назад»). Всё остальное — попытка подсунуть чужой шаг.
-    const expected = expectedQuestionId(answers)
-    const isRepeat = answers.some((answer) => answer.q === questionId)
-    if (!isRepeat && questionId !== expected) {
+    // (пользователь нажал «Назад»): для этого откатываем answers до состояния
+    // ПЕРЕД questionId (если он уже встречался) и пересчитываем, каким шагом
+    // он был бы в этой точке — так проверка одинаково работает и для нового
+    // вопроса, и для правки прошлого, включая динамический шаг portrait_pick,
+    // у которого нет статичного банка вариантов (кандидаты зависят от ответов).
+    const priorIndex = answers.findIndex((answer) => answer.q === questionId)
+    const priorAnswers = priorIndex >= 0 ? answers.slice(0, priorIndex) : answers
+    const stepAtThisPoint = computeNextStep(priorAnswers)
+
+    if (stepAtThisPoint.kind === 'ready' || stepAtThisPoint.question_id !== questionId) {
       return apiError(
         422,
         ERROR_CODES.UNEXPECTED_QUESTION,
@@ -88,7 +93,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!isChoiceValid(questionId, choice)) {
+    if (!isValidStepChoice(stepAtThisPoint, choice)) {
       return apiError(422, ERROR_CODES.INVALID_CHOICE, 'Такого варианта ответа нет')
     }
 

@@ -19,13 +19,15 @@ import { logError, logWarn } from '@/lib/logger'
 import { applyTypeToLead } from '@/lib/leads/type-assignment'
 import {
   computeResult,
-  hasEnoughAnswers,
+  isReadyForResult,
   parseStoredAnswers,
   parseTestResult,
   scoreAnswers,
+  type StoredAnswer,
   type TestResult,
 } from '@/lib/test-engine'
 import type { Json } from '@/types/database'
+import { logInfo } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -86,12 +88,15 @@ export async function POST(request: NextRequest) {
     }
 
     const answers = parseStoredAnswers(session.answers)
-    if (!hasEnoughAnswers(answers)) {
+    // Готовность = все 15 базовых вопросов + разрешённые спорные пары + шаг
+    // выбора портрета (см. computeNextStep в flow.ts) — не только счётчик 15.
+    if (!isReadyForResult(answers)) {
       return apiError(422, ERROR_CODES.INSUFFICIENT_ANSWERS, 'Ответьте на все вопросы')
     }
 
     const scores = scoreAnswers(answers)
     const result = computeResult(answers)
+    logDebugSnapshot(sessionId, answers, result)
 
     const { error: updateError } = await supabase
       .from('test_sessions')
@@ -140,4 +145,30 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return toApiErrorResponse(error, 'api.test.submit.failed')
   }
+}
+
+/**
+ * Диагностика прохождения — аналог `dataLine()` эталона (версия, тип,
+ * раннер-ап, уверенность, поайтемный лог), но НЕ пользователю: только в
+ * структурированный серверный лог, за фича-флагом `NEXT_PUBLIC_TEST_DEBUG`
+ * (решение по Этапу 1 п.№8 — самоотчёт пользователю не показываем).
+ * `NEXT_PUBLIC_`-префикс — только ради единообразия имени флага в `.env.local`
+ * с остальными переключателями проекта; здесь переменная читается исключительно
+ * на сервере, в клиентский бандл не идёт.
+ */
+function logDebugSnapshot(sessionId: string, answers: readonly StoredAnswer[], result: TestResult): void {
+  if (process.env.NEXT_PUBLIC_TEST_DEBUG !== 'true') return
+
+  const answersById = Object.fromEntries(answers.map((a) => [a.q, a.choice]))
+  logInfo('test.debug_snapshot', {
+    session_id: sessionId,
+    version: result.version,
+    type: result.type,
+    runner_up: result.runner_up,
+    confidence: result.confidence,
+    borderline: result.borderline,
+    switched: result.switched,
+    tiebreak_path: result.tiebreak_path,
+    answers: answersById,
+  })
 }

@@ -10,8 +10,13 @@ export type { Center, HarmonicTriad, SocialTriad }
 export const ENNEAGRAM_TYPES = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const
 export type EnneagramType = (typeof ENNEAGRAM_TYPES)[number]
 
-/** Версия механики. Пишется в `test_sessions.version` — результаты версий несопоставимы. */
-export const TEST_VERSION = 'v0.4'
+/**
+ * Версия механики. Пишется в `test_sessions.version` — результаты версий
+ * несопоставимы. v1.0 — перенос алгоритма из эталона `ennea-test-v1_0.html`
+ * (сменил v0.4 — формульную реализацию по Чертёж.md БЛОК 5 без пошагового
+ * нокаута и без шага выбора портрета).
+ */
+export const TEST_VERSION = 'v1.0'
 
 /** Минимум ответов до расчёта результата: 12 триад + 3 вопроса центра. */
 export const MIN_ANSWERS = 15
@@ -63,16 +68,31 @@ export interface TestResult {
   runner_up: EnneagramType
   /** Идентификаторы заданных tiebreak-вопросов в порядке предъявления. */
   tiebreak_path: string[]
-  /** `confidence < 0.6` после tiebreak — честно помечаем пограничность (edge case 8). */
+  /** `confidence < 0.62` после всех уточнений — честно помечаем пограничность (edge case 8; порог — из эталона v1.0). */
   borderline: boolean
   version: string
+  /** Пользователь на шаге выбора портрета переопределил алгоритмического победителя (эталон v1.0). */
+  switched: boolean
+}
+
+/** Один из двух финалистов на шаге выбора портрета — короткий дискриминирующий текст, не длинный portrait_md. */
+export interface PortraitCandidate {
+  type: EnneagramType
+  name: string
+  fear: string
+  body: string[]
 }
 
 /**
- * Следующий шаг для клиента. Вопросы центра намеренно едут тем же `kind: 'triad'`:
- * по контракту Чертежа (БЛОК 3) видов ровно три — triad / tiebreak / ready,
- * а вопрос центра — такая же форсированная тройка вариантов. Различить их
- * можно по полю `axis`, если UI захочет подсветить блок иначе.
+ * Следующий шаг для клиента.
+ *
+ * Вопросы центра намеренно едут тем же `kind: 'triad'`: видов вопросов по
+ * содержанию два (форсированная тройка / бинарный tiebreak), а вопрос центра —
+ * такая же форсированная тройка вариантов. Различить их можно по полю `axis`.
+ *
+ * `portrait_pick` — финальный шаг из эталона v1.0: пользователь читает два
+ * коротких портрета от первого лица и выбирает тот, что «ёкнул»; выбор может
+ * переопределить алгоритмического победителя (см. `TestResult.switched`).
  */
 export type NextStep =
   | {
@@ -88,6 +108,11 @@ export type NextStep =
       question_id: string
       prompt: string
       options: QuestionOption[]
+    }
+  | {
+      kind: 'portrait_pick'
+      question_id: string
+      candidates: [PortraitCandidate, PortraitCandidate]
     }
   | { kind: 'ready' }
 

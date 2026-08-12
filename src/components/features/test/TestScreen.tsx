@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { useTestSession } from '@/lib/test/useTestSession'
 import { BackButton } from './BackButton'
 import { MatrixViz } from './MatrixViz'
+import { PortraitPickCard } from './PortraitPickCard'
 import { TestProgress } from './TestProgress'
 import { TestSkeleton } from './TestSkeleton'
 import { TriadCard } from './TriadCard'
@@ -58,7 +59,7 @@ export function TestScreen() {
       <div className="flex flex-1 flex-col gap-5">
         <TestProgress answered={progress.answered} totalMin={progress.total_min} />
 
-        {step.kind === 'ready' ? (
+        {step.kind === 'ready' && (
           <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-card p-6 text-center">
             <p className="text-lg font-medium">Готово. Мы прикинули твой тип.</p>
             <p className="text-sm text-muted-foreground">
@@ -82,7 +83,27 @@ export function TestScreen() {
               )}
             </Button>
           </div>
-        ) : (
+        )}
+
+        {step.kind === 'portrait_pick' && (
+          <>
+            <PortraitPickCard candidates={step.candidates} onPick={(type) => selectOption(String(type))} disabled={isSavingAnswer} />
+            {answerError && (
+              <Alert variant="destructive">
+                <TriangleAlert aria-hidden="true" />
+                <AlertTitle>Не удалось сохранить выбор</AlertTitle>
+                <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                  <span>{answerError}</span>
+                  <Button type="button" size="sm" variant="outline" onClick={retryAnswer}>
+                    Повторить
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+          </>
+        )}
+
+        {(step.kind === 'triad' || step.kind === 'tiebreak') && (
           <>
             <TriadCard
               prompt={step.prompt}

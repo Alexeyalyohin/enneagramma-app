@@ -28,7 +28,10 @@ const testResultSchema = z.object({
   runner_up: enneagramTypeSchema,
   tiebreak_path: z.array(z.string()).default([]),
   borderline: z.boolean().default(false),
-  version: z.string().default('v0.4'),
+  version: z.string().default('v1.0'),
+  // Раньше версии v0.4 (без переноса из эталона) этого поля не было —
+  // читаем старые записи как false, а не роняем парсинг.
+  switched: z.boolean().default(false),
 })
 
 /** `test_sessions.answers` → массив ответов. Любой мусор → пустой массив. */

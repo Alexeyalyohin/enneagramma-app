@@ -6,6 +6,7 @@
 export * from './types'
 export * from './grid'
 export * from './questions'
+export * from './portraits'
 export * from './scoring'
 export * from './flow'
 export { parseStoredAnswers, parseTestResult } from './serialization'

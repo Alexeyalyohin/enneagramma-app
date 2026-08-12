@@ -1,11 +1,16 @@
 /**
- * Расчёт осей, кандидат-типа, confidence, крыла и выбора спорной пары.
- * Чертёж.md, БЛОК 5, шаги 1–5.
+ * Расчёт осей, кандидат-типа, пошагового нокаута спорных пар, confidence и
+ * крыла. Перенесено 1-в-1 из эталона `ennea-test-v1_0.html` (функции
+ * `classify`, `finishBase`, `buildTies`/`startTie`/`endTie`/`dropLoser`,
+ * `computeConfidence`, `support`/`wingText`) под stateless-архитектуру
+ * приложения: эталон держит состояние в переменной браузера и идёт вперёд
+ * шаг за шагом, здесь то же самое пересчитывается заново из сохранённых
+ * ответов на каждый запрос — это чистые функции, детерминированные при
+ * одинаковом входе.
  *
- * Всё здесь — чистые функции: одни и те же ответы всегда дают один и тот же
- * результат, без обращений к БД, времени и рандому. Это принципиально:
- * `computeNextStep` вызывается на каждом ответе и обязан быть воспроизводимым,
- * иначе спорная пара «прыгала» бы между запросами.
+ * Проверено на 9 эталонных профилях (по одному на тип, скрипт в
+ * scripts/verify-test-engine.ts на момент переноса, не хранится в репозитории
+ * постоянно) — тип/крыло/уверенность совпадают с ручным прогоном эталона.
  */
 
 import {
@@ -17,7 +22,7 @@ import {
   pairKey,
   typeFromCell,
 } from './grid'
-import { CENTER_QUESTIONS, TRIAD_QUESTIONS, hasTiebreakPair } from './questions'
+import { CENTER_QUESTIONS, TIEBREAK_ITEMS, TRIAD_QUESTIONS } from './questions'
 import type {
   AxisScores,
   Center,
@@ -32,12 +37,8 @@ const SOCIAL_SET = new Set<string>(SOCIAL_ORDER)
 const HARMONIC_SET = new Set<string>(HARMONIC_ORDER)
 const CENTER_SET = new Set<string>(CENTER_ORDER)
 
-const SOCIAL_QUESTION_IDS = new Set(
-  TRIAD_QUESTIONS.filter((q) => q.axis === 'social').map((q) => q.id)
-)
-const HARMONIC_QUESTION_IDS = new Set(
-  TRIAD_QUESTIONS.filter((q) => q.axis === 'harmonic').map((q) => q.id)
-)
+const SOCIAL_QUESTION_IDS = new Set(TRIAD_QUESTIONS.filter((q) => q.axis === 'social').map((q) => q.id))
+const HARMONIC_QUESTION_IDS = new Set(TRIAD_QUESTIONS.filter((q) => q.axis === 'harmonic').map((q) => q.id))
 const CENTER_QUESTION_IDS = new Set(CENTER_QUESTIONS.map((q) => q.id))
 
 export function emptyAxisScores(): AxisScores {
@@ -48,11 +49,7 @@ export function emptyAxisScores(): AxisScores {
   }
 }
 
-/**
- * Считает баллы осей по сохранённым ответам.
- * Ответы на tiebreak-вопросы оси НЕ трогают — иначе выбор спорной пары
- * менялся бы прямо во время самого tiebreak.
- */
+/** Считает баллы осей по сохранённым ответам на 15 базовых вопросов. */
 export function scoreAnswers(answers: readonly StoredAnswer[]): AxisScores {
   const scores = emptyAxisScores()
 
@@ -69,174 +66,289 @@ export function scoreAnswers(answers: readonly StoredAnswer[]): AxisScores {
   return scores
 }
 
-export interface AxisRank<TValue extends string> {
-  /** Значения оси по убыванию баллов; ничьи разрешаются каноническим порядком. */
-  ranked: TValue[]
-  top: TValue
-  runnerUp: TValue
-  /** Отрыв лидера от второго места в баллах. */
-  margin: number
+// ============================================================================
+// 1. classify() — эталон: high (лидер ≥4 и отрыв ≥2) / low (ровно 2/2/2) / medium
+// ============================================================================
+
+export type AxisLevel = 'high' | 'medium' | 'low'
+
+export interface AxisClassification<TValue extends string> {
+  level: AxisLevel
+  /** Полюсы, прошедшие в кандидаты: 1 (high), 2 (medium) или все 3 (low). */
+  poles: TValue[]
+  /** Полное ранжирование по убыванию счёта, ничьи — по каноническому порядку. */
+  sorted: { key: TValue; value: number }[]
 }
 
-/**
- * Ранжирование оси. Ничья разрешается фиксированным каноническим порядком
- * (`SOCIAL_ORDER` и т.д.) — детерминизм важнее «справедливости»: сам факт
- * ничьей всё равно обнулит margin и уронит confidence, а дальше сработает tiebreak.
- */
-export function rankAxis<TValue extends string>(
-  scores: Record<TValue, number>,
+export function classifyAxis<TValue extends string>(
+  counts: Record<TValue, number>,
   order: readonly TValue[]
-): AxisRank<TValue> {
-  const ranked = [...order].sort((a, b) => {
-    const diff = scores[b] - scores[a]
-    if (diff !== 0) return diff
-    return order.indexOf(a) - order.indexOf(b)
-  })
+): AxisClassification<TValue> {
+  const sorted = [...order]
+    .map((key) => ({ key, value: counts[key] }))
+    .sort((a, b) => b.value - a.value || order.indexOf(a.key) - order.indexOf(b.key))
 
-  const top = ranked[0]
-  const runnerUp = ranked[1]
-  return { ranked, top, runnerUp, margin: scores[top] - scores[runnerUp] }
+  const top = sorted[0]
+  const second = sorted[1]
+
+  if (top.value >= 4 && top.value - second.value >= 2) {
+    return { level: 'high', poles: [top.key], sorted }
+  }
+  if (sorted[0].value === 2 && sorted[1].value === 2 && sorted[2].value === 2) {
+    return { level: 'low', poles: [...order], sorted }
+  }
+  return { level: 'medium', poles: [top.key, second.key], sorted }
 }
 
-export type CenterVerdict = 'match' | 'conflict' | 'neutral'
+// ============================================================================
+// 2. finishBase() — сверка с центром, при конфликте — понижение high→medium
+// ============================================================================
 
-/** Бонус центра из Чертежа: +0.1 при совпадении, −0.15 при конфликте. */
-export const CENTER_BONUS: Record<CenterVerdict, number> = {
-  match: 0.1,
-  conflict: -0.15,
-  neutral: 0,
+export type CenterFlag = 'ok' | 'conflict' | 'split'
+
+export interface BaseState {
+  socialPoles: SocialTriad[]
+  socialLevel: AxisLevel
+  harmPoles: HarmonicTriad[]
+  harmLevel: AxisLevel
+  centerFlag: CenterFlag
 }
 
-/**
- * `confidence = clamp(0.5 + 0.5 * (margin_social + margin_harmonic) / 12 + center_bonus, 0, 1)`
- * (Чертёж, БЛОК 5, шаг 3). Максимум сырых баллов на ось — 6, поэтому знаменатель 12.
- */
-export function computeConfidence(
-  marginSocial: number,
-  marginHarmonic: number,
-  centerBonus: number
-): number {
-  const raw = 0.5 + (0.5 * (marginSocial + marginHarmonic)) / 12 + centerBonus
-  return clamp01(round2(raw))
-}
-
-function clamp01(value: number): number {
-  return Math.min(1, Math.max(0, value))
-}
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100
-}
-
-export interface BaseAssessment {
+export interface BaseAssessment extends BaseState {
   scores: AxisScores
-  social: AxisRank<SocialTriad>
-  harmonic: AxisRank<HarmonicTriad>
-  center: AxisRank<Center>
-  candidate: EnneagramType
-  /** Ближайший конкурент — с ним и идём в tiebreak, если он нужен. */
-  runnerUp: EnneagramType
-  centerVerdict: CenterVerdict
-  confidence: number
-  /** Чертёж: tiebreak нужен при `confidence < 0.7` ИЛИ нулевом отрыве по любой оси. */
-  needsTiebreak: boolean
-  /** Спорная пара из банка. `null` — если подходящей пары в банке нет. */
-  tiebreakPair: TiebreakPairKey | null
+  social: AxisClassification<SocialTriad>
+  harmonic: AxisClassification<HarmonicTriad>
+  center: AxisClassification<Center>
 }
 
-/**
- * Базовая оценка по 12 триадам + чеку центра, до tiebreak.
- * Считается только из осевых баллов, поэтому стабильна на протяжении tiebreak.
- */
 export function assessBase(scores: AxisScores): BaseAssessment {
-  const social = rankAxis(scores.social, SOCIAL_ORDER)
-  const harmonic = rankAxis(scores.harmonic, HARMONIC_ORDER)
-  const center = rankAxis(scores.center, CENTER_ORDER)
+  const social = classifyAxis(scores.social, SOCIAL_ORDER)
+  const harmonic = classifyAxis(scores.harmonic, HARMONIC_ORDER)
+  const center = classifyAxis(scores.center, CENTER_ORDER)
 
-  const candidate = typeFromCell(social.top, harmonic.top)
+  let socialPoles = social.poles
+  let socialLevel = social.level
+  let harmPoles = harmonic.poles
+  let harmLevel = harmonic.level
 
-  // Ничья по центру (1/1/1) — не совпадение и не конфликт: сигнала просто нет.
-  const centerVerdict: CenterVerdict =
-    center.margin === 0 ? 'neutral' : center.top === TYPE_META[candidate].center ? 'match' : 'conflict'
+  const declared = center.level === 'low' ? null : center.sorted[0].key
+  const candidates: EnneagramType[] = []
+  for (const s of socialPoles) for (const h of harmPoles) candidates.push(typeFromCell(s, h))
 
-  const confidence = computeConfidence(social.margin, harmonic.margin, CENTER_BONUS[centerVerdict])
-  const alternatives = rankAlternatives(candidate, social, harmonic, center, centerVerdict)
-
-  const runnerUp = alternatives[0] ?? candidate
-  const tiebreakPair: TiebreakPairKey | null =
-    alternatives.map((alt) => pairKey(candidate, alt)).find((key) => hasTiebreakPair(key)) ?? null
-
-  return {
-    scores,
-    social,
-    harmonic,
-    center,
-    candidate,
-    runnerUp,
-    centerVerdict,
-    confidence,
-    needsTiebreak: confidence < 0.7 || social.margin === 0 || harmonic.margin === 0,
-    tiebreakPair,
-  }
-}
-
-/**
- * Конкуренты кандидата, от самого спорного к менее спорному.
- *
- * 1. Соседние ячейки по той оси, где отрыв меньше (главный источник спорности).
- * 2. Если обе оси дали нулевой отрыв — сначала диагональ: спорны обе оси разом
- *    (это единственный случай, когда осмысленна пара вроде `2_3`).
- * 3. Если центр конфликтует — типы той же строки/столбца, чей центр совпал
- *    с измеренным: центр говорит, что мы промахнулись именно ячейкой.
- */
-function rankAlternatives(
-  candidate: EnneagramType,
-  social: AxisRank<SocialTriad>,
-  harmonic: AxisRank<HarmonicTriad>,
-  center: AxisRank<Center>,
-  centerVerdict: CenterVerdict
-): EnneagramType[] {
-  const bySocial = typeFromCell(social.runnerUp, harmonic.top)
-  const byHarmonic = typeFromCell(social.top, harmonic.runnerUp)
-
-  const ordered: EnneagramType[] =
-    social.margin <= harmonic.margin ? [bySocial, byHarmonic] : [byHarmonic, bySocial]
-
-  if (social.margin === 0 && harmonic.margin === 0) {
-    ordered.unshift(typeFromCell(social.runnerUp, harmonic.runnerUp))
-  }
-
-  if (centerVerdict === 'conflict') {
-    const sameRow = HARMONIC_ORDER.map((h) => typeFromCell(social.top, h))
-    const sameColumn = SOCIAL_ORDER.map((s) => typeFromCell(s, harmonic.top))
-    for (const type of [...sameRow, ...sameColumn]) {
-      if (TYPE_META[type].center === center.top) ordered.push(type)
+  let centerFlag: CenterFlag
+  if (declared === null) {
+    centerFlag = 'split'
+  } else if (candidates.some((t) => TYPE_META[t].center === declared)) {
+    centerFlag = 'ok'
+  } else {
+    centerFlag = 'conflict'
+    if (socialLevel === 'high' && social.sorted[1]) {
+      socialPoles = [social.sorted[0].key, social.sorted[1].key]
+      socialLevel = 'medium'
+    } else if (harmLevel === 'high' && harmonic.sorted[1]) {
+      harmPoles = [harmonic.sorted[0].key, harmonic.sorted[1].key]
+      harmLevel = 'medium'
     }
   }
 
-  return dedupe(ordered.filter((type) => type !== candidate))
+  return { scores, social, harmonic, center, socialPoles, socialLevel, harmPoles, harmLevel, centerFlag }
 }
 
-function dedupe(types: EnneagramType[]): EnneagramType[] {
-  return [...new Set(types)]
+// ============================================================================
+// 3. buildTies()/startTie()/dropLoser() — пошаговый нокаут спорных пар.
+//    Чистая реализация: воспроизводит цепочку эталона по уже отвеченным
+//    tiebreak-вопросам, не храня промежуточное состояние нигде, кроме answers.
+// ============================================================================
+
+export interface TieRound {
+  pair: TiebreakPairKey
+  typeA: EnneagramType
+  typeB: EnneagramType
+  votesA: number
+  votesB: number
+  winner: EnneagramType
+  loser: EnneagramType
+}
+
+export type TieResolution =
+  | { done: true; socialPole: SocialTriad; harmPole: HarmonicTriad; log: TieRound[] }
+  | { done: false; nextQuestionId: string; pair: TiebreakPairKey }
+
+function sortPolesByScore<TValue extends string>(
+  poles: readonly TValue[],
+  scores: Record<TValue, number>,
+  order: readonly TValue[]
+): TValue[] {
+  return [...poles].sort((a, b) => scores[b] - scores[a] || order.indexOf(a) - order.indexOf(b))
 }
 
 /**
- * Крыло — сосед по кругу (`type ± 1`), «чьи оси ближе к вторичным баллам»
- * (Чертёж, шаг 5).
- *
- * Эвристика v0.4: сосед получает сумму сырых баллов по своим осям плюс
- * половину балла своего центра (центр — сигнал более слабый, три вопроса
- * против двенадцати). Ничья разрешается в пользу правого соседа (`type + 1`) —
- * ради детерминизма, содержательного предпочтения тут нет.
+ * Голосование по банку из 3 вопросов пары. Эталон решает раунд, только когда
+ * заданы все 3 (majority vote), не адаптивно — в отличие от версии v0.4.
+ * Если банка для пары нет (в переносе такого не бывает — все 18 реально
+ * достижимых пар покрыты), эталон отдаёт победу «типу A» без вопросов.
+ */
+function tallyPairVotes(
+  typeA: EnneagramType,
+  typeB: EnneagramType,
+  answered: ReadonlyMap<string, string>
+): { done: true; round: TieRound } | { done: false; nextQuestionId: string } {
+  const key = pairKey(typeA, typeB)
+  const items = TIEBREAK_ITEMS[key]
+
+  if (!items) {
+    return {
+      done: true,
+      round: { pair: key, typeA, typeB, votesA: 0, votesB: 0, winner: typeA, loser: typeB },
+    }
+  }
+
+  let votesA = 0
+  let votesB = 0
+  for (const item of items) {
+    const choice = answered.get(item.id)
+    if (choice === undefined) return { done: false, nextQuestionId: item.id }
+    if (choice === String(typeA)) votesA += 1
+    else if (choice === String(typeB)) votesB += 1
+  }
+
+  const winner = votesA >= votesB ? typeA : typeB
+  const loser = winner === typeA ? typeB : typeA
+  return { done: true, round: { pair: key, typeA, typeB, votesA, votesB, winner, loser } }
+}
+
+/**
+ * Пошаговый нокаут: сначала полностью разрешает гармоническую ось (фиксируя
+ * лучший социальный полюс), затем — если он тоже был спорным — социальную
+ * (фиксируя уже разрешённый гармонический). Может понадобиться больше одного
+ * раунда на ось, если на ней была тройная ничья (`low`) — эталон в этом
+ * случае сравнивает первые два полюса по каноническому порядку, а третий
+ * возвращается в игру, если первый раунд его не исключил.
+ */
+export function resolveTies(
+  socialPolesIn: readonly SocialTriad[],
+  harmPolesIn: readonly HarmonicTriad[],
+  scores: AxisScores,
+  answered: ReadonlyMap<string, string>
+): TieResolution {
+  let socialPoles = sortPolesByScore(socialPolesIn, scores.social, SOCIAL_ORDER)
+  let harmPoles = sortPolesByScore(harmPolesIn, scores.harmonic, HARMONIC_ORDER)
+  const log: TieRound[] = []
+
+  for (;;) {
+    if (harmPoles.length > 1) {
+      const row = socialPoles[0]
+      const typeA = typeFromCell(row, harmPoles[0])
+      const typeB = typeFromCell(row, harmPoles[1])
+      const outcome = tallyPairVotes(typeA, typeB, answered)
+      if (!outcome.done) return { done: false, nextQuestionId: outcome.nextQuestionId, pair: pairKey(typeA, typeB) }
+      log.push(outcome.round)
+      harmPoles = harmPoles.filter((pole) => typeFromCell(row, pole) !== outcome.round.loser)
+      continue
+    }
+    if (socialPoles.length > 1) {
+      const col = harmPoles[0]
+      const typeA = typeFromCell(socialPoles[0], col)
+      const typeB = typeFromCell(socialPoles[1], col)
+      const outcome = tallyPairVotes(typeA, typeB, answered)
+      if (!outcome.done) return { done: false, nextQuestionId: outcome.nextQuestionId, pair: pairKey(typeA, typeB) }
+      log.push(outcome.round)
+      socialPoles = socialPoles.filter((pole) => typeFromCell(pole, col) !== outcome.round.loser)
+      continue
+    }
+    break
+  }
+
+  return { done: true, socialPole: socialPoles[0], harmPole: harmPoles[0], log }
+}
+
+// ============================================================================
+// 4. buildFinalists() — победитель + второй финалист (для шага выбора портрета)
+// ============================================================================
+
+export interface Finalists {
+  winner: EnneagramType
+  runnerUp: EnneagramType
+}
+
+function supportScore(type: EnneagramType, scores: AxisScores): number {
+  const meta = TYPE_META[type]
+  return scores.social[meta.social] + scores.harmonic[meta.harmonic]
+}
+
+/**
+ * Второй финалист: если был нокаут — последний проигравший; если нокаута не
+ * было вовсе (обе оси сразу `high`) — сосед по кругу Эннеаграммы с большей
+ * суммой сырых баллов (без веса центра — так в эталоне).
+ */
+export function buildFinalists(
+  socialPole: SocialTriad,
+  harmPole: HarmonicTriad,
+  tieLog: readonly TieRound[],
+  scores: AxisScores
+): Finalists {
+  const winner = typeFromCell(socialPole, harmPole)
+
+  if (tieLog.length > 0) {
+    return { winner, runnerUp: tieLog[tieLog.length - 1].loser }
+  }
+
+  const [left, right] = neighborsOf(winner)
+  const runnerUp = supportScore(left, scores) >= supportScore(right, scores) ? left : right
+  return { winner, runnerUp }
+}
+
+// ============================================================================
+// 5. computeConfidence() — формула эталона 1-в-1: старт 88, дискретные штрафы,
+//    потолок 55 при переопределении портрета, клэмп [45, 92].
+// ============================================================================
+
+export interface ConfidenceInputs {
+  socialLevel: AxisLevel
+  harmLevel: AxisLevel
+  centerFlag: CenterFlag
+  tieLog: readonly TieRound[]
+  /** Пользователь на шаге выбора портрета выбрал НЕ алгоритмического победителя. */
+  switched: boolean
+}
+
+/** Хранится как доля [0,1] (совместимость со схемой `test_sessions.result`/API), не как проценты [45,92]. */
+export function computeConfidence(inputs: ConfidenceInputs): number {
+  let c = 88
+  if (inputs.socialLevel === 'medium') c -= 8
+  if (inputs.socialLevel === 'low') c -= 16
+  if (inputs.harmLevel === 'medium') c -= 8
+  if (inputs.harmLevel === 'low') c -= 16
+  if (inputs.centerFlag === 'conflict') c -= 12
+  if (inputs.centerFlag === 'split') c -= 5
+
+  // «Узкая» победа 2:1 в раунде нокаута — тот же сигнал, что и строковая
+  // проверка `":2"`/`":1"` в эталоне: при 3 голосах это ровно случай (2,1).
+  for (const round of inputs.tieLog) {
+    if (Math.min(round.votesA, round.votesB) === 1) c -= 5
+  }
+
+  if (inputs.switched) c = Math.min(c, 55)
+
+  const clamped = Math.max(45, Math.min(92, Math.round(c)))
+  return clamped / 100
+}
+
+/** Порог «неустойчивого» результата — 62%, из эталона (было 60% в v0.4). */
+export const BORDERLINE_THRESHOLD = 0.62
+
+// ============================================================================
+// 6. wing/support() — крыло по сумме сырых баллов соседа (без веса центра).
+// ============================================================================
+
+/**
+ * Крыло финального типа. При равной поддержке эталон не форсирует выбор
+ * (текст «выражены примерно поровну») — здесь нужен конкретный тип для
+ * `leads.wing`, поэтому равенство разрешается в пользу правого соседа
+ * (`type+1`), как и в v0.4: детерминированный дефолт без содержательного
+ * предпочтения.
  */
 export function pickWing(type: EnneagramType, scores: AxisScores): EnneagramType {
   const [left, right] = neighborsOf(type)
-
-  const weight = (neighbor: EnneagramType): number => {
-    const meta = TYPE_META[neighbor]
-    return scores.social[meta.social] + scores.harmonic[meta.harmonic] + 0.5 * scores.center[meta.center]
-  }
-
-  return weight(left) > weight(right) ? left : right
+  return supportScore(left, scores) > supportScore(right, scores) ? left : right
 }
