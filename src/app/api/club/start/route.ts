@@ -23,7 +23,7 @@ import { logError, logWarn } from '@/lib/logger'
 import { zPhoneRu } from '@/lib/phone'
 import { hasIssueOn, optionalField } from '@/lib/validation'
 import { resolveLead } from '@/lib/leads/identity'
-import { buildClubStartPayload } from '@/lib/signing'
+import { buildLinkStartPayload } from '@/lib/signing'
 import type { ServiceClient } from '@/lib/supabase/types'
 
 export const runtime = 'nodejs'
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     // подробности — в src/lib/signing.ts). Приоритет у lead_id как у
     // долговечного ключа; session_id — запасной вариант для анонимного лида,
     // по нему `/api/leads/link-telegram` создаст лида при первом `?start=`.
-    const startPayload = buildClubStartPayload(
+    const startPayload = buildLinkStartPayload(
       leadId ? { lead_id: leadId } : { session_id: sessionId }
     )
 

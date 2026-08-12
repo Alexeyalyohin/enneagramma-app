@@ -9,14 +9,10 @@ import { Button } from '@/components/ui/button'
 import { apiGet } from '@/lib/fetch-api'
 import type { TestResultData } from '@/lib/result/types'
 import { ConfidenceBadge } from './ConfidenceBadge'
-import { LeadCaptureForm, type LeadCaptureResult } from './LeadCaptureForm'
 import { ResultSkeleton } from './ResultSkeleton'
 import { TelegramCTA } from './TelegramCTA'
 import { TypePortrait } from './TypePortrait'
 import { WingHint } from './WingHint'
-
-/** Совпадает с дефолтом бэкенда в `POST /api/leads/capture` (см. src/app/api/leads/capture/route.ts). */
-const DEFAULT_TELEGRAM_LINK = 'https://t.me/enneagramma_one'
 
 type LoadState =
   | { kind: 'loading' }
@@ -30,7 +26,6 @@ interface ResultScreenProps {
 
 export function ResultScreen({ sessionId }: ResultScreenProps) {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
-  const [captureResult, setCaptureResult] = useState<LeadCaptureResult | null>(null)
 
   // `load` — `async`: см. пояснение в DashboardScreen/useTestSession про
   // react-hooks/set-state-in-effect.
@@ -62,7 +57,7 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
     return (
       <div className="mx-auto flex w-full max-w-180 flex-col items-center gap-4 px-4 py-20 text-center">
         <p className="text-base text-foreground">Тест не завершён</p>
-        {/* nativeButton={false}: рендерится как <a> (next/link), не <button> — см. TelegramCTA.tsx */}
+        {/* nativeButton={false}: рендерится как <a> (next/link), не <button> — Base UI иначе ждёт настоящий <button>. */}
         <Button render={<Link href="/test" />} nativeButton={false}>
           Пройти заново
         </Button>
@@ -81,7 +76,6 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
   }
 
   const { data } = state
-  const showTelegramCta = Boolean(captureResult) || data.captured
 
   return (
     <div className="mx-auto flex w-full max-w-180 flex-col gap-6 px-4 py-10 sm:py-14">
@@ -91,21 +85,7 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
 
       <WingHint wing={data.wing} wings={data.wings} />
 
-      {showTelegramCta ? (
-        <TelegramCTA
-          leadId={captureResult?.lead_id ?? ''}
-          sessionId={sessionId}
-          deepLink={captureResult?.telegram_deep_link ?? DEFAULT_TELEGRAM_LINK}
-        />
-      ) : (
-        <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
-          <div>
-            <p className="text-sm font-medium text-foreground">Сохрани результат и получай разборы</p>
-            <p className="text-xs text-muted-foreground">Оставь телефон — пришлём разбор и не потеряем твой тип.</p>
-          </div>
-          <LeadCaptureForm sessionId={sessionId} onCaptured={setCaptureResult} />
-        </div>
-      )}
+      <TelegramCTA sessionId={sessionId} />
     </div>
   )
 }

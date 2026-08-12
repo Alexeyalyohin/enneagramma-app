@@ -44,8 +44,14 @@ function readEnv(name: string): string | null {
 /**
  * Префикс полезной нагрузки `?start=` (Чертёж: `?start=club_<signed_token>`).
  * Salebot присылает токен в `/api/leads/link-telegram` обычно вместе с ним.
+ *
+ * Общий для ОБЕИХ кнопок deep-link в проекте — «Получить разбор в Telegram»
+ * на экране результата (`/api/leads/telegram-start`) и «Вступить в клуб»
+ * (`/api/club/start`): токен просто несёт lead_id/session_id, приложению не
+ * нужно различать источник на этапе подписи/проверки — это дело сценария
+ * бота на стороне Salebot, если он вообще захочет их различать.
  */
-export const CLUB_TOKEN_PREFIX = 'club_'
+export const LINK_TOKEN_PREFIX = 'club_'
 
 /** TTL по умолчанию — сутки (edge case 25: просроченный токен отклоняем). */
 export const LINK_TOKEN_TTL_SECONDS = 24 * 60 * 60
@@ -158,8 +164,8 @@ export function verifyLinkToken(raw: string, nowSeconds?: number): LinkTokenVeri
   }
 
   const trimmed = raw.trim()
-  const token = trimmed.startsWith(CLUB_TOKEN_PREFIX)
-    ? trimmed.slice(CLUB_TOKEN_PREFIX.length)
+  const token = trimmed.startsWith(LINK_TOKEN_PREFIX)
+    ? trimmed.slice(LINK_TOKEN_PREFIX.length)
     : trimmed
   if (token === '' || !/^[A-Za-z0-9_-]+$/.test(token)) return { valid: false, reason: 'malformed' }
 
@@ -194,9 +200,9 @@ export function verifyLinkToken(raw: string, nowSeconds?: number): LinkTokenVeri
   }
 }
 
-/** Готовая нагрузка для `?start=` — с префиксом клуба. */
-export function buildClubStartPayload(input: SignLinkTokenInput): string {
-  return `${CLUB_TOKEN_PREFIX}${signLinkToken(input)}`
+/** Готовая нагрузка для `?start=` — подписанный токен с префиксом. */
+export function buildLinkStartPayload(input: SignLinkTokenInput): string {
+  return `${LINK_TOKEN_PREFIX}${signLinkToken(input)}`
 }
 
 // -----------------------------------------------------------------------------
