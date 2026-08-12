@@ -61,10 +61,8 @@ export function TestScreen() {
 
         {step.kind === 'ready' && (
           <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-card p-6 text-center">
-            <p className="text-lg font-medium">Готово. Мы прикинули твой тип.</p>
-            <p className="text-sm text-muted-foreground">
-              Жми, чтобы увидеть портрет и то, насколько мы в нём уверены.
-            </p>
+            <p className="text-lg font-medium">Готово.</p>
+            <p className="text-sm text-muted-foreground">Посмотрим, что получилось.</p>
             {submitError && (
               <Alert variant="destructive" className="text-left">
                 <TriangleAlert aria-hidden="true" />
@@ -79,7 +77,7 @@ export function TestScreen() {
                   Считаем...
                 </>
               ) : (
-                'Показать результат'
+                'Узнать свой тип'
               )}
             </Button>
           </div>

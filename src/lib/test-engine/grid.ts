@@ -32,15 +32,19 @@ export interface TypeMeta {
   center: Center
 }
 
+// Названия — канонические, из NAMES в ennea-test-v1_0.html. Единственный
+// источник истины; не путать с TYPE_CENTER-производными вариантами других
+// эннеаграм-школ (Реформатор/Помощник/Достигатор/Исследователь/Скептик/Лидер
+// и т.п.) — это НЕ наши названия, даже если где-то встречались раньше.
 export const TYPE_META: Record<EnneagramType, TypeMeta> = {
-  1: { type: 1, title: 'Тип 1 — Реформатор', social: 'compliant', harmonic: 'competency', center: 'gut' },
-  2: { type: 2, title: 'Тип 2 — Помощник', social: 'compliant', harmonic: 'positive', center: 'heart' },
-  3: { type: 3, title: 'Тип 3 — Достигатор', social: 'assertive', harmonic: 'competency', center: 'heart' },
+  1: { type: 1, title: 'Тип 1 — Перфекционист', social: 'compliant', harmonic: 'competency', center: 'gut' },
+  2: { type: 2, title: 'Тип 2 — Альтруист', social: 'compliant', harmonic: 'positive', center: 'heart' },
+  3: { type: 3, title: 'Тип 3 — Достигатель', social: 'assertive', harmonic: 'competency', center: 'heart' },
   4: { type: 4, title: 'Тип 4 — Индивидуалист', social: 'withdrawn', harmonic: 'reactive', center: 'heart' },
-  5: { type: 5, title: 'Тип 5 — Исследователь', social: 'withdrawn', harmonic: 'competency', center: 'head' },
-  6: { type: 6, title: 'Тип 6 — Скептик', social: 'compliant', harmonic: 'reactive', center: 'head' },
+  5: { type: 5, title: 'Тип 5 — Мыслитель', social: 'withdrawn', harmonic: 'competency', center: 'head' },
+  6: { type: 6, title: 'Тип 6 — Лоялист', social: 'compliant', harmonic: 'reactive', center: 'head' },
   7: { type: 7, title: 'Тип 7 — Энтузиаст', social: 'assertive', harmonic: 'positive', center: 'head' },
-  8: { type: 8, title: 'Тип 8 — Лидер', social: 'assertive', harmonic: 'reactive', center: 'gut' },
+  8: { type: 8, title: 'Тип 8 — Босс', social: 'assertive', harmonic: 'reactive', center: 'gut' },
   9: { type: 9, title: 'Тип 9 — Миротворец', social: 'withdrawn', harmonic: 'positive', center: 'gut' },
 }
 
