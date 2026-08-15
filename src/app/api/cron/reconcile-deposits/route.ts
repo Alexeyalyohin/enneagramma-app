@@ -1,5 +1,7 @@
 /**
- * Крон `reconcile-deposits` — Чертёж.md, БЛОК 5 «Cron-задачи»: каждые 10 мин.
+ * Крон `reconcile-deposits` — Чертёж.md, БЛОК 5 «Cron-задачи»: по спецификации
+ * каждые 10 мин, СЕЙЧАС временно раз в сутки (`vercel.json`, 02:00 MSK) — то
+ * же ограничение бесплатного тарифа Vercel (Hobby), что и у `retry-salebot-sync`.
  * Помечает «зависшими» депозиты листа ожидания (`waitlist_entries.deposit_status
  * = 'pending'`), для которых вебхук Prodamus не пришёл дольше часа (edge case 20a).
  *
