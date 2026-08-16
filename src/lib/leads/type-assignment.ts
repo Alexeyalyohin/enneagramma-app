@@ -52,7 +52,7 @@ export async function applyTypeToLead(
     return { applied: true, reason: 'was_null', previousConfidence: null }
   }
 
-  const previousConfidence = await bestPreviousConfidence(client, leadId, exceptSessionId)
+  const previousConfidence = await bestConfidenceAmong(client, leadId, exceptSessionId)
 
   if (previousConfidence === null || input.confidence > previousConfidence) {
     await writeType(client, leadId, input)
@@ -60,6 +60,19 @@ export async function applyTypeToLead(
   }
 
   return { applied: false, reason: 'kept_existing', previousConfidence }
+}
+
+/**
+ * Уверенность (0..1), которой соответствует ТЕКУЩИЙ активный тип лида —
+ * для отображения (например, боту Salebot), не для правила присвоения выше.
+ *
+ * Работает благодаря инварианту `applyTypeToLead`: тип лида переписывается
+ * только когда новая confidence строго больше всех предыдущих, поэтому
+ * текущий тип всегда — тип сессии с ГЛОБАЛЬНЫМ максимумом confidence среди
+ * завершённых сессий лида.
+ */
+export async function currentTypeConfidence(client: ServiceClient, leadId: string): Promise<number | null> {
+  return bestConfidenceAmong(client, leadId)
 }
 
 async function writeType(
@@ -74,8 +87,8 @@ async function writeType(
   if (error) throw error
 }
 
-/** Максимальная уверенность среди прошлых завершённых сессий лида. */
-async function bestPreviousConfidence(
+/** Максимальная уверенность среди завершённых сессий лида (опц. кроме одной). */
+async function bestConfidenceAmong(
   client: ServiceClient,
   leadId: string,
   exceptSessionId?: string

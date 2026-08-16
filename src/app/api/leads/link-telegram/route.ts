@@ -32,6 +32,7 @@ import { normalizeTelegramUsername } from '@/lib/phone'
 import { optionalField } from '@/lib/validation'
 import { verifyLinkToken, verifySalebotSecret } from '@/lib/signing'
 import { linkTelegramToLead } from '@/lib/leads/telegram-link'
+import { PORTRAIT_NAMES, type EnneagramType } from '@/lib/test-engine'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -104,6 +105,14 @@ export async function POST(request: NextRequest) {
       lead_id: result.leadId,
       enneagram_type: result.enneagramType,
       wing: result.wing,
+      // Готовые для показа в боте поля — чтобы Salebot не конвертировал номер
+      // типа в название сам: `type_name`/`wing_label` из того же словаря, что
+      // и шаг «выбор портрета» в тесте (src/lib/test-engine/portraits.ts).
+      type_name: result.enneagramType ? PORTRAIT_NAMES[result.enneagramType as EnneagramType] : null,
+      wing_label: result.enneagramType && result.wing ? `${result.enneagramType}w${result.wing}` : null,
+      // confidence хранится долей 0..1 (test_sessions.result) — здесь округляем
+      // до целых процентов специально для отображения, не для бизнес-логики.
+      confidence: result.confidence !== null ? Math.round(result.confidence * 100) : null,
       merged: result.merged,
     })
   } catch (error) {

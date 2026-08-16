@@ -9,7 +9,7 @@
 
 import { logWarn } from '@/lib/logger'
 import { LEAD_COLUMNS, resolveLead } from '@/lib/leads/identity'
-import { applyTypeToLead } from '@/lib/leads/type-assignment'
+import { applyTypeToLead, currentTypeConfidence } from '@/lib/leads/type-assignment'
 import { parseTestResult } from '@/lib/test-engine'
 import type { LeadRow, ServiceClient } from '@/lib/supabase/types'
 
@@ -28,6 +28,8 @@ export interface LinkTelegramResult {
   created: boolean
   enneagramType: number | null
   wing: number | null
+  /** Уверенность (0..1) текущего enneagramType/wing, см. `currentTypeConfidence`. */
+  confidence: number | null
   /** Сессия из токена привязана к лиду в этом вызове. */
   sessionLinked: boolean
 }
@@ -66,6 +68,7 @@ export async function linkTelegramToLead(
       created: false,
       enneagramType: tokenLead.enneagram_type,
       wing: tokenLead.wing,
+      confidence: await currentTypeConfidence(client, tokenLead.id),
       sessionLinked: false,
     }
   }
@@ -99,12 +102,15 @@ export async function linkTelegramToLead(
     }
   }
 
+  const confidence = await currentTypeConfidence(client, leadId)
+
   return {
     leadId,
     merged: resolved.merged,
     created: resolved.created,
     enneagramType,
     wing,
+    confidence,
     sessionLinked,
   }
 }
