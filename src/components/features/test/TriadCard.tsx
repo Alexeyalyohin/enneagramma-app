@@ -29,7 +29,7 @@ export function TriadCard({ prompt, options, onSelect, disabled = false }: Triad
             size="lg"
             disabled={disabled}
             onClick={() => onSelect(option.value)}
-            className="h-auto min-h-11 w-full justify-start text-wrap px-4 py-3 text-left text-sm leading-snug"
+            className="h-auto min-h-11 w-full justify-start whitespace-normal px-4 py-3 text-left text-sm leading-snug"
           >
             {option.label}
           </Button>

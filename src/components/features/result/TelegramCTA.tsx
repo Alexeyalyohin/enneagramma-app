@@ -69,7 +69,11 @@ export function TelegramCTA({ sessionId }: TelegramCTAProps) {
         </Label>
       </div>
 
-      <Button onClick={handleClick} disabled={!consent || loading} className="w-full sm:w-auto">
+      <Button
+        onClick={handleClick}
+        disabled={!consent || loading}
+        className="h-auto min-h-9 w-full justify-center py-2 whitespace-normal text-center sm:w-auto"
+      >
         {loading ? (
           <>
             <LoaderCircle className="animate-spin" aria-hidden="true" />
