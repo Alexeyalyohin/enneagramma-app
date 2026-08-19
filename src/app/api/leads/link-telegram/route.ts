@@ -44,25 +44,6 @@ const bodySchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
-  // ВРЕМЕННО — диагностика рассинхрона формата тела после смены конфигурации
-  // Salebot (plain-text → JSON). Убрать, как только разберёмся, откуда идёт
-  // VALIDATION_ERROR. Читаем через .clone(), чтобы не съесть тело раньше
-  // readJsonBody() ниже — Request/NextRequest позволяют прочитать body-стрим
-  // только один раз.
-  try {
-    const rawBody = await request.clone().text()
-    console.error(
-      'DEBUG_link_telegram_raw',
-      JSON.stringify({
-        raw_body: rawBody,
-        content_type: request.headers.get('content-type'),
-        has_salebot_secret_header: Boolean(request.headers.get('x-salebot-secret')),
-      })
-    )
-  } catch (debugError) {
-    console.error('DEBUG_link_telegram_raw_failed', String(debugError))
-  }
-
   if (!verifySalebotSecret(request)) {
     const limited = enforceRateLimit(request, 'link-telegram-unauth', RATE_LIMITS.leadsLinkTelegram)
     if (limited) return limited
