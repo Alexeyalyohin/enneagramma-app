@@ -161,12 +161,11 @@ async function attachSessionAndType(
     return { linked, typeApplied: false }
   }
 
-  const outcome = await applyTypeToLead(
-    client,
-    leadId,
-    { type: result.type, wing: result.wing, confidence: result.confidence },
-    session.id
-  )
+  const outcome = await applyTypeToLead(client, leadId, {
+    type: result.type,
+    wing: result.wing,
+    confidence: result.confidence,
+  })
 
   return { linked, typeApplied: outcome.applied }
 }

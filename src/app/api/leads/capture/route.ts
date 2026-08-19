@@ -104,12 +104,11 @@ export async function POST(request: NextRequest) {
 
         const result = parseTestResult(session.result)
         if (session.status === 'completed' && result) {
-          const outcome = await applyTypeToLead(
-            supabase,
-            lead.id,
-            { type: result.type, wing: result.wing, confidence: result.confidence },
-            session.id
-          )
+          const outcome = await applyTypeToLead(supabase, lead.id, {
+            type: result.type,
+            wing: result.wing,
+            confidence: result.confidence,
+          })
           typeApplied = outcome.applied
         }
       }

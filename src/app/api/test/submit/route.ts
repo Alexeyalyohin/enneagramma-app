@@ -128,12 +128,11 @@ export async function POST(request: NextRequest) {
     // применяем правило уверенности. Для анонимной сессии это сделает /api/leads/capture.
     if (session.lead_id) {
       try {
-        await applyTypeToLead(
-          supabase,
-          session.lead_id,
-          { type: result.type, wing: result.wing, confidence: result.confidence },
-          sessionId
-        )
+        await applyTypeToLead(supabase, session.lead_id, {
+          type: result.type,
+          wing: result.wing,
+          confidence: result.confidence,
+        })
       } catch (error) {
         // Тип в лиде — вторичен по отношению к самому результату теста:
         // не даём этой ошибке съесть успешный submit.
