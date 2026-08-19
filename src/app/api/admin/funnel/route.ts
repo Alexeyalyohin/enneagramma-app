@@ -26,17 +26,24 @@ const querySchema = z.object({
 /**
  * Основная цепочка воронки: конверсия каждого шага считается от предыдущего.
  * Порядок фиксирован — он же порядок отрисовки столбцов в админке.
+ *
+ * `lead_captured` сюда намеренно не входит: событие пишет только старый
+ * `/api/leads/capture` (форма с телефоном на экране результата), которую
+ * убрали в пользу Telegram как основного пути захвата (см. коммит
+ * "make Telegram the primary result-screen capture path, drop phone form").
+ * Реальный путь теперь test_completed → telegram_cta_clicked напрямую —
+ * держать lead_captured как обязательное звено давало абсурдный процент
+ * (telegram_cta_clicked делился на почти нулевой мёртвый счётчик).
  */
 const FUNNEL_CHAIN: readonly EventType[] = [
   'test_started',
   'test_completed',
-  'lead_captured',
   'telegram_cta_clicked',
   'club_paid',
 ]
 
-/** Боковая ветка B2B: у неё нет предыдущего шага в основной цепочке. */
-const SIDE_STEPS: readonly EventType[] = ['waitlist_deposit_paid']
+/** Боковые метрики: у них нет осмысленного «предыдущего шага» в основной цепочке. */
+const SIDE_STEPS: readonly EventType[] = ['lead_captured', 'waitlist_deposit_paid']
 
 interface FunnelStep {
   key: EventType
