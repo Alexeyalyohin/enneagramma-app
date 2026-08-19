@@ -88,7 +88,7 @@ export function DashboardScreen() {
       {!loading && data && !isEmpty && (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <HighlightCard count={leadCapturedStep?.count ?? 0} crFromPrev={leadCapturedStep?.cr_from_prev} />
+            <HighlightCard count={leadCapturedStep?.count ?? 0} crFromPrev={data.lead_capture_rate} />
             <MetricCard label="MRR клуба" value={formatKopecksToRub(data.mrr_kopecks)} />
             <MetricCard label="Активные подписки" value={String(data.active_clubs)} />
           </div>

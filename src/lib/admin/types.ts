@@ -11,6 +11,8 @@ export interface FunnelStep {
 export interface FunnelResponse {
   period_days: number
   steps: FunnelStep[]
+  /** Конверсия lead_captured/test_completed — для карточки «Узкое горлышко», см. route.ts. */
+  lead_capture_rate?: number
   mrr_kopecks: number
   active_clubs: number
 }

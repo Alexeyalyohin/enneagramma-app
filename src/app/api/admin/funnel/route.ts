@@ -110,6 +110,16 @@ export async function GET(request: NextRequest) {
 
     SIDE_STEPS.forEach((key, index) => steps.push({ key, count: sideCounts[index] }))
 
+    // Конверсия для карточки «Узкое горлышко» (HighlightCard) — считается
+    // явно по имени шага, а не по позиции в FUNNEL_CHAIN: lead_captured в
+    // цепочку намеренно не входит (см. комментарий у FUNNEL_CHAIN), поэтому
+    // обычный cr_from_prev для него не считается. Отдельное поле, а не
+    // cr_from_prev внутри steps — чтобы список FunnelChart не начал рисовать
+    // тот же процент рядом со строкой «Оставили контакт».
+    const testCompletedCount = chainCounts[FUNNEL_CHAIN.indexOf('test_completed')]
+    const leadCapturedCount = sideCounts[SIDE_STEPS.indexOf('lead_captured')]
+    const leadCaptureRate = ratio(leadCapturedCount, testCompletedCount)
+
     // MRR — сумма цен только по активным подпискам зеркала Salebot.
     // past_due в MRR не берём: деньги за период фактически не пришли.
     const { data: activeSubscriptions, error: subscriptionsError } = await supabase
@@ -124,6 +134,7 @@ export async function GET(request: NextRequest) {
     return apiSuccess({
       period_days: periodDays,
       steps,
+      lead_capture_rate: leadCaptureRate,
       mrr_kopecks: mrrKopecks,
       active_clubs: activeSubscriptions?.length ?? 0,
     })
