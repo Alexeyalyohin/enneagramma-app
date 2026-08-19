@@ -51,7 +51,7 @@ interface SubmitResponse {
   result_url: string
 }
 
-type Phase = 'loading' | 'active' | 'submitting' | 'fatal'
+type Phase = 'loading' | 'intro' | 'active' | 'submitting' | 'fatal'
 
 /** Коды, при которых локальный снимок больше не годится — нужен новый старт. */
 const RESTART_CODES = new Set(['SESSION_ABANDONED', 'SESSION_NOT_FOUND', 'SESSION_COMPLETED', 'UNEXPECTED_QUESTION'])
@@ -71,6 +71,7 @@ export interface UseTestSessionResult {
   goBack: () => void
   submitTest: () => void
   restart: () => void
+  beginTest: () => void
 }
 
 export function useTestSession(): UseTestSessionResult {
@@ -128,7 +129,11 @@ export function useTestSession(): UseTestSessionResult {
     async function init() {
       const stored = loadTestState()
       if (!stored) {
-        await startNewSession()
+        // Первый заход — показываем интро (эталон ennea-test-v1_0.html,
+        // renderIntro): сессию на бэкенде создаём только по клику «Начать»
+        // (startNewSession/beginTest), не раньше — иначе плодим
+        // test_sessions на каждый заход человека, который просто заглянул.
+        setPhase('intro')
         return
       }
 
@@ -274,5 +279,8 @@ export function useTestSession(): UseTestSessionResult {
     goBack,
     submitTest,
     restart,
+    // Тот же startNewSession, что и restart — отдельное имя для кнопки
+    // «Начать» на интро-экране, чтобы не путать «начать» с «начать заново».
+    beginTest: restart,
   }
 }

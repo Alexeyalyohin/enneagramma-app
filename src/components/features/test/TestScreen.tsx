@@ -7,6 +7,7 @@ import { useTestSession } from '@/lib/test/useTestSession'
 import { BackButton } from './BackButton'
 import { MatrixViz } from './MatrixViz'
 import { PortraitPickCard } from './PortraitPickCard'
+import { TestIntro } from './TestIntro'
 import { TestProgress } from './TestProgress'
 import { TestSkeleton } from './TestSkeleton'
 import { TriadCard } from './TriadCard'
@@ -28,12 +29,21 @@ export function TestScreen() {
     goBack,
     submitTest,
     restart,
+    beginTest,
   } = useTestSession()
 
   if (phase === 'loading') {
     return (
       <div className="mx-auto w-full max-w-[640px] px-4 py-8 sm:py-12 lg:max-w-[900px]">
         <TestSkeleton />
+      </div>
+    )
+  }
+
+  if (phase === 'intro') {
+    return (
+      <div className="mx-auto w-full max-w-[640px] px-4 py-8 sm:py-12 lg:max-w-[900px]">
+        <TestIntro onStart={beginTest} />
       </div>
     )
   }
