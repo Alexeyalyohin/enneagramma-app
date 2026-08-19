@@ -5,7 +5,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { initialLoginState, loginAction } from '@/app/auth/login/actions'
+import { loginAction } from '@/app/auth/login/actions'
+import { initialLoginState } from '@/app/auth/login/types'
 
 /** Форма входа владельца (Чертёж.md, БЛОК 4 «Экран: Вход владельца»). */
 export function LoginForm() {

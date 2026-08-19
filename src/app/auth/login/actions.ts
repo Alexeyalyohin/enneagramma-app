@@ -19,6 +19,7 @@ import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { logInfo, logWarn } from '@/lib/logger'
 import { RATE_LIMITS, getClientIpFromHeaderLookup, rateLimit } from '@/lib/rate-limit'
+import type { LoginState } from './types'
 
 const GENERIC_ERROR = 'Неверный email или пароль'
 
@@ -27,12 +28,6 @@ const loginSchema = z.object({
   // Чертёж, БЛОК 5 «Валидация форм»: пароль владельца — не короче 8 символов.
   password: z.string().min(8),
 })
-
-export interface LoginState {
-  error: string | null
-}
-
-export const initialLoginState: LoginState = { error: null }
 
 export async function loginAction(_prevState: LoginState, formData: FormData): Promise<LoginState> {
   // Единственная точка входа в админку — лимитируем попытки по IP, как и
