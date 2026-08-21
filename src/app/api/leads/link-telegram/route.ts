@@ -113,6 +113,12 @@ export async function POST(request: NextRequest) {
       // confidence хранится долей 0..1 (test_sessions.result) — здесь округляем
       // до целых процентов специально для отображения, не для бизнес-логики.
       confidence: result.confidence !== null ? Math.round(result.confidence * 100) : null,
+      // true — выбор теста был близким (тай-брейк/borderline), и confidence
+      // выше нельзя подписывать как «уверенность именно в этом типе»: это
+      // уверенность в разрыве между ним и вторым кандидатом. Salebot должен
+      // использовать другую формулировку сообщения при close_call=true —
+      // см. обсуждение с владельцем.
+      close_call: result.closeCall,
       merged: result.merged,
     })
   } catch (error) {

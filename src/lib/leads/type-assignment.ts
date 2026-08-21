@@ -49,12 +49,25 @@ export async function applyTypeToLead(
   return { applied: true, reason }
 }
 
+export interface CurrentResultSummary {
+  /** Уверенность (0..1) — на самом деле «насколько чётко разошлись два кандидата», не «уверенность именно в этом типе» (см. closeCall). */
+  confidence: number
+  /**
+   * Был тай-брейк между кандидатами ИЛИ итоговая уверенность ниже порога
+   * (edge case 8) — тот же признак «близкого выбора», что решает, показывать
+   * ли альтернативный портрет на экране результата (`/api/test/result`).
+   * Когда true, `confidence` нельзя подписывать как «уверенность в типе X» —
+   * это уверенность в разрыве между X и вторым кандидатом, не в самом X.
+   */
+  closeCall: boolean
+}
+
 /**
- * Уверенность (0..1) ПОСЛЕДНЕГО по времени завершённого прохождения лида —
- * им же, по правилу выше, определён текущий `enneagram_type`/`wing`.
- * Для отображения (например, боту Salebot), не для бизнес-правила.
+ * Confidence/closeCall ПОСЛЕДНЕГО по времени завершённого прохождения лида —
+ * им же, по правилу в `applyTypeToLead`, определён текущий `enneagram_type`/
+ * `wing`. Для отображения (например, боту Salebot), не для бизнес-правила.
  */
-export async function currentTypeConfidence(client: ServiceClient, leadId: string): Promise<number | null> {
+export async function currentResultSummary(client: ServiceClient, leadId: string): Promise<CurrentResultSummary | null> {
   const { data, error } = await client
     .from('test_sessions')
     .select('result')
@@ -69,7 +82,12 @@ export async function currentTypeConfidence(client: ServiceClient, leadId: strin
   if (!data) return null
 
   const result = parseTestResult(data.result)
-  return result ? result.confidence : null
+  if (!result) return null
+
+  return {
+    confidence: result.confidence,
+    closeCall: result.tiebreak_path.length > 0 || result.borderline,
+  }
 }
 
 async function writeType(

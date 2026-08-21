@@ -10,6 +10,11 @@
  * deep-link у `/api/leads/telegram-start` (несёт session_id), потом
  * переходим — так Salebot при первом `?start=` сможет опознать сессию и
  * создать лида с telegram_id (см. POST /api/leads/link-telegram).
+ *
+ * `selectedType` — тип, показанный на экране ИМЕННО СЕЙЧАС (primary или
+ * альтернатива после переключателя AlternativeTypeSwitch). Передаётся в
+ * `/api/leads/telegram-start` при каждом клике, чтобы в лид ушёл тот тип,
+ * на который человек реально смотрел, а не всегда исходный алгоритмический.
  */
 
 import { useState } from 'react'
@@ -26,9 +31,11 @@ interface TelegramStartResponse {
 
 interface TelegramCTAProps {
   sessionId: string
+  /** Тип, показанный на экране прямо сейчас — см. пояснение в шапке файла. */
+  selectedType: number
 }
 
-export function TelegramCTA({ sessionId }: TelegramCTAProps) {
+export function TelegramCTA({ sessionId, selectedType }: TelegramCTAProps) {
   const [consent, setConsent] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -37,6 +44,7 @@ export function TelegramCTA({ sessionId }: TelegramCTAProps) {
     const result = await apiPost<TelegramStartResponse>('/api/leads/telegram-start', {
       session_id: sessionId,
       consent_152fz: true,
+      selected_type: selectedType,
     })
     setLoading(false)
 

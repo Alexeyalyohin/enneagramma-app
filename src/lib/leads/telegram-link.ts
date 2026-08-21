@@ -9,8 +9,8 @@
 
 import { logWarn } from '@/lib/logger'
 import { LEAD_COLUMNS, resolveLead } from '@/lib/leads/identity'
-import { applyTypeToLead, currentTypeConfidence } from '@/lib/leads/type-assignment'
-import { parseTestResult } from '@/lib/test-engine'
+import { applyTypeToLead, currentResultSummary } from '@/lib/leads/type-assignment'
+import { parseStoredAnswers, parseTestResult, pickWing, scoreAnswers, type EnneagramType } from '@/lib/test-engine'
 import type { LeadRow, ServiceClient } from '@/lib/supabase/types'
 
 export interface LinkTelegramInput {
@@ -28,8 +28,10 @@ export interface LinkTelegramResult {
   created: boolean
   enneagramType: number | null
   wing: number | null
-  /** Уверенность (0..1) текущего enneagramType/wing, см. `currentTypeConfidence`. */
+  /** Уверенность (0..1) текущего enneagramType/wing, см. `currentResultSummary`. */
   confidence: number | null
+  /** Выбор был близким (тай-брейк/borderline) — confidence не про конкретный тип, см. `currentResultSummary`. */
+  closeCall: boolean
   /** Сессия из токена привязана к лиду в этом вызове. */
   sessionLinked: boolean
 }
@@ -62,13 +64,15 @@ export async function linkTelegramToLead(
       existing_telegram_id: tokenLead.telegram_id,
       incoming_telegram_id: input.telegramId,
     })
+    const summary = await currentResultSummary(client, tokenLead.id)
     return {
       leadId: tokenLead.id,
       merged: false,
       created: false,
       enneagramType: tokenLead.enneagram_type,
       wing: tokenLead.wing,
-      confidence: await currentTypeConfidence(client, tokenLead.id),
+      confidence: summary?.confidence ?? null,
+      closeCall: summary?.closeCall ?? false,
       sessionLinked: false,
     }
   }
@@ -91,10 +95,12 @@ export async function linkTelegramToLead(
   let sessionLinked = false
   let enneagramType = resolved.lead.enneagram_type
   let wing = resolved.lead.wing
+  let closeCall = false
 
   if (input.sessionId) {
     const outcome = await attachSessionAndType(client, input.sessionId, leadId)
     sessionLinked = outcome.linked
+    closeCall = outcome.closeCall
     if (outcome.typeApplied) {
       const refreshed = await findLeadById(client, leadId)
       enneagramType = refreshed?.enneagram_type ?? enneagramType
@@ -102,7 +108,7 @@ export async function linkTelegramToLead(
     }
   }
 
-  const confidence = await currentTypeConfidence(client, leadId)
+  const summary = await currentResultSummary(client, leadId)
 
   return {
     leadId,
@@ -110,30 +116,35 @@ export async function linkTelegramToLead(
     created: resolved.created,
     enneagramType,
     wing,
-    confidence,
+    confidence: summary?.confidence ?? null,
+    // Приоритет — closeCall ИМЕННО той сессии, что привязывалась в этом
+    // вызове (она точно относится к enneagramType выше); currentResultSummary
+    // — запасной источник для пути без sessionId (лид уже существовал).
+    closeCall: input.sessionId ? closeCall : (summary?.closeCall ?? false),
     sessionLinked,
   }
 }
 
 /**
- * Привязывает сессию теста к лиду и переносит тип по правилу уверенности.
- * Чужую сессию (уже принадлежит другому лиду) не перехватываем.
+ * Привязывает сессию теста к лиду и переносит тип по правилу «последнее
+ * прохождение побеждает» (см. `applyTypeToLead`). Чужую сессию (уже
+ * принадлежит другому лиду) не перехватываем.
  */
 async function attachSessionAndType(
   client: ServiceClient,
   sessionId: string,
   leadId: string
-): Promise<{ linked: boolean; typeApplied: boolean }> {
+): Promise<{ linked: boolean; typeApplied: boolean; closeCall: boolean }> {
   const { data: session, error } = await client
     .from('test_sessions')
-    .select('id, status, result, lead_id')
+    .select('id, status, result, lead_id, answers, viewer_selected_type')
     .eq('id', sessionId)
     .maybeSingle()
 
   if (error) throw error
   if (!session) {
     logWarn('leads.link_telegram.session_missing', { session_id: sessionId, lead_id: leadId })
-    return { linked: false, typeApplied: false }
+    return { linked: false, typeApplied: false, closeCall: false }
   }
 
   let linked = session.lead_id === leadId
@@ -153,19 +164,31 @@ async function attachSessionAndType(
       session_id: sessionId,
       lead_id: leadId,
     })
-    return { linked: false, typeApplied: false }
+    return { linked: false, typeApplied: false, closeCall: false }
   }
 
   const result = parseTestResult(session.result)
   if (!linked || session.status !== 'completed' || !result) {
-    return { linked, typeApplied: false }
+    return { linked, typeApplied: false, closeCall: false }
   }
 
-  const outcome = await applyTypeToLead(client, leadId, {
-    type: result.type,
-    wing: result.wing,
-    confidence: result.confidence,
-  })
+  const closeCall = result.tiebreak_path.length > 0 || result.borderline
 
-  return { linked, typeApplied: outcome.applied }
+  // Если на экране результата пользователь явно переключился на раннер-апа
+  // перед кликом в Telegram — записываем в лид ЕГО выбор, не алгоритмического
+  // победителя. Сверяем с result.runner_up здесь заново, а не доверяем
+  // колонке слепо: /api/leads/telegram-start пишет её раньше и независимо,
+  // а session.result мог теоретически с тех пор смениться повторным
+  // /api/test/submit по той же сессии.
+  let type = result.type
+  let wing = result.wing
+  if (session.viewer_selected_type !== null && session.viewer_selected_type === result.runner_up) {
+    type = session.viewer_selected_type as EnneagramType
+    const scores = scoreAnswers(parseStoredAnswers(session.answers))
+    wing = pickWing(type, scores)
+  }
+
+  const outcome = await applyTypeToLead(client, leadId, { type, wing, confidence: result.confidence })
+
+  return { linked, typeApplied: outcome.applied, closeCall }
 }

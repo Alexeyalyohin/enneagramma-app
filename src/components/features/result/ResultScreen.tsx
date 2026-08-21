@@ -81,6 +81,7 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
   const { data } = state
   const alternative = data.alternative
   const showingAlternative = viewingAlternative && alternative !== null
+  const displayedType = showingAlternative && alternative ? alternative.type : data.type
 
   return (
     <div className="mx-auto flex w-full max-w-180 flex-col gap-6 px-4 py-10 sm:py-14">
@@ -106,7 +107,7 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
         />
       )}
 
-      <TelegramCTA sessionId={sessionId} />
+      <TelegramCTA sessionId={sessionId} selectedType={displayedType} />
     </div>
   )
 }

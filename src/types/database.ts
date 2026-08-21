@@ -341,6 +341,7 @@ export type Database = {
           status: string
           updated_at: string | null
           version: string
+          viewer_selected_type: number | null
         }
         Insert: {
           answers?: Json
@@ -352,6 +353,7 @@ export type Database = {
           status?: string
           updated_at?: string | null
           version?: string
+          viewer_selected_type?: number | null
         }
         Update: {
           answers?: Json
@@ -363,6 +365,7 @@ export type Database = {
           status?: string
           updated_at?: string | null
           version?: string
+          viewer_selected_type?: number | null
         }
         Relationships: [
           {

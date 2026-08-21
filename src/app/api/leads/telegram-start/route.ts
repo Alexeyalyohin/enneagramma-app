@@ -24,8 +24,11 @@ import { RATE_LIMITS, enforceRateLimit } from '@/lib/rate-limit'
 import { createServiceClient } from '@/lib/supabase/service'
 import { recordEvent } from '@/lib/events'
 import { toApiErrorResponse } from '@/lib/errors'
-import { logError } from '@/lib/logger'
+import { logError, logWarn } from '@/lib/logger'
 import { buildLinkStartPayload } from '@/lib/signing'
+import { parseTestResult } from '@/lib/test-engine'
+import { optionalField } from '@/lib/validation'
+import type { ServiceClient } from '@/lib/supabase/types'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -33,6 +36,12 @@ export const dynamic = 'force-dynamic'
 const bodySchema = z.object({
   session_id: z.uuid(),
   consent_152fz: z.literal(true),
+  /**
+   * Тип, который сейчас показан на экране результата (переключатель
+   * раннер-апа, см. AlternativeTypeSwitch) — primary или альтернатива.
+   * Опционально: старые клиенты/без переключателя просто не шлют поле.
+   */
+  selected_type: optionalField(z.coerce.number().int().min(1).max(9)),
 })
 
 /** Имя бота Salebot без «@». Реального бота может ещё не быть — тогда плейсхолдер. */
@@ -61,12 +70,12 @@ export async function POST(request: NextRequest) {
       return apiError(503, ERROR_CODES.PROVIDER_UNAVAILABLE, 'Бот временно недоступен')
     }
 
-    const { session_id: sessionId } = parsed.data
+    const { session_id: sessionId, selected_type: selectedType } = parsed.data
     const supabase = createServiceClient()
 
     const { data: session, error: sessionError } = await supabase
       .from('test_sessions')
-      .select('id')
+      .select('id, result')
       .eq('id', sessionId)
       .maybeSingle()
 
@@ -76,6 +85,10 @@ export async function POST(request: NextRequest) {
     }
     if (!session) {
       return apiError(404, ERROR_CODES.SESSION_NOT_FOUND, 'Сессия теста не найдена')
+    }
+
+    if (selectedType !== undefined) {
+      await recordViewerSelection(supabase, sessionId, session.result, selectedType)
     }
 
     const startPayload = buildLinkStartPayload({ session_id: sessionId })
@@ -89,5 +102,53 @@ export async function POST(request: NextRequest) {
     return apiSuccess({ bot_deep_link: `https://t.me/${username}?start=${startPayload}` })
   } catch (error) {
     return toApiErrorResponse(error, 'api.leads.telegram_start.failed')
+  }
+}
+
+/**
+ * Запоминает, какой портрет был на экране в момент клика — только когда это
+ * реально альтернатива (равна `runner_up` сохранённого результата), иначе
+ * трактуем как «пользователь смотрел на исходный тип» и явно очищаем
+ * колонку в `null`. Каждый клик перезаписывает значение безусловно — важно
+ * для случая «открыл результат → посмотрел раннер-апа → передумал →
+ * вернулся → кликнул»: должно остаться то, что было на экране именно при
+ * ПОСЛЕДНЕМ клике, а не залипнуть на первом выборе.
+ *
+ * Значение с фронта не подставляется слепо: если оно не совпадает ни с
+ * `result.type`, ни с `result.runner_up` (испорченный клиент/чужой запрос),
+ * колонку не трогаем вовсе — лучше оставить прежнее состояние, чем записать
+ * тип, которого для этой сессии не существует.
+ */
+async function recordViewerSelection(
+  client: ServiceClient,
+  sessionId: string,
+  rawResult: unknown,
+  selectedType: number
+): Promise<void> {
+  const result = parseTestResult(rawResult)
+  if (!result) return
+
+  let nextValue: number | null
+  if (selectedType === result.type) {
+    nextValue = null
+  } else if (selectedType === result.runner_up) {
+    nextValue = selectedType
+  } else {
+    logWarn('api.leads.telegram_start.selected_type_mismatch', {
+      session_id: sessionId,
+      selected_type: selectedType,
+      type: result.type,
+      runner_up: result.runner_up,
+    })
+    return
+  }
+
+  const { error } = await client
+    .from('test_sessions')
+    .update({ viewer_selected_type: nextValue })
+    .eq('id', sessionId)
+
+  if (error) {
+    logError('api.leads.telegram_start.viewer_selection_failed', { session_id: sessionId }, error)
   }
 }
