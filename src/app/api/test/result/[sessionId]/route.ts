@@ -63,15 +63,28 @@ export async function GET(
       return apiError(404, ERROR_CODES.RESULT_NOT_READY, 'Тест не завершён')
     }
 
-    const { data: description, error: descriptionError } = await supabase
+    // «Альтернативный» портрет (раннер-ап) показываем только когда выбор был
+    // реально близким — был тай-брейк между кандидатами, или итоговая
+    // уверенность и так низкая (edge case 8). На уверенных результатах без
+    // тай-брейка запрашиваем только один тип, как и раньше — без изменений
+    // в размере ответа/числе запросов на самом частом случае.
+    const hadTiebreak = result.tiebreak_path.length > 0
+    const showAlternative = hadTiebreak || result.borderline
+    const typesToFetch = showAlternative ? [result.type, result.runner_up] : [result.type]
+
+    const { data: descriptions, error: descriptionError } = await supabase
       .from('type_descriptions')
       .select('type, title, social_triad, harmonic_triad, center, portrait_md, short_summary, wings')
-      .eq('type', result.type)
-      .maybeSingle()
+      .in('type', typesToFetch)
 
     if (descriptionError) {
       logError('api.test.result.description_failed', { session_id: sessionId, type: result.type }, descriptionError)
     }
+
+    const description = descriptions?.find((row) => row.type === result.type) ?? null
+    const alternativeDescription = showAlternative
+      ? (descriptions?.find((row) => row.type === result.runner_up) ?? null)
+      : null
 
     // Описания типов — редакционный контент. Если сид ещё не залит, отдаём
     // результат с заголовком из движка, а не 500: тип посчитан, он корректен.
@@ -100,6 +113,14 @@ export async function GET(
       short_summary: description?.short_summary ?? null,
       wings: description?.wings ?? null,
       captured: session.lead_id !== null,
+      alternative: showAlternative
+        ? {
+            type: result.runner_up,
+            title: alternativeDescription?.title ?? TYPE_META[result.runner_up].title,
+            portrait_md: alternativeDescription?.portrait_md ?? null,
+            short_summary: alternativeDescription?.short_summary ?? null,
+          }
+        : null,
     })
   } catch (error) {
     return toApiErrorResponse(error, 'api.test.result.failed')

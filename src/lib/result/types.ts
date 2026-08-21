@@ -6,6 +6,13 @@ export interface WingMeta {
   hint: string
 }
 
+export interface AlternativeTypeData {
+  type: number
+  title: string
+  portrait_md: string | null
+  short_summary: string | null
+}
+
 export interface TestResultData {
   type: number
   title: string
@@ -20,4 +27,6 @@ export interface TestResultData {
   short_summary: string | null
   wings: { left: WingMeta; right: WingMeta } | null
   captured: boolean
+  /** Портрет раннер-апа — только когда выбор был близким (тай-брейк/низкая уверенность), иначе `null`. */
+  alternative: AlternativeTypeData | null
 }

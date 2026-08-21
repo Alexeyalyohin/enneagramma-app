@@ -8,6 +8,7 @@ import { TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { apiGet } from '@/lib/fetch-api'
 import type { TestResultData } from '@/lib/result/types'
+import { AlternativeTypeSwitch } from './AlternativeTypeSwitch'
 import { ConfidenceBadge } from './ConfidenceBadge'
 import { ResultSkeleton } from './ResultSkeleton'
 import { TelegramCTA } from './TelegramCTA'
@@ -26,6 +27,8 @@ interface ResultScreenProps {
 
 export function ResultScreen({ sessionId }: ResultScreenProps) {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
+  // Чисто отображение уже посчитанного раннер-апа — сессию/тест это не трогает.
+  const [viewingAlternative, setViewingAlternative] = useState(false)
 
   // `load` — `async`: см. пояснение в DashboardScreen/useTestSession про
   // react-hooks/set-state-in-effect.
@@ -76,14 +79,32 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
   }
 
   const { data } = state
+  const alternative = data.alternative
+  const showingAlternative = viewingAlternative && alternative !== null
 
   return (
     <div className="mx-auto flex w-full max-w-180 flex-col gap-6 px-4 py-10 sm:py-14">
-      <TypePortrait title={data.title} portraitMd={data.portrait_md} shortSummary={data.short_summary} />
+      {showingAlternative && alternative ? (
+        <TypePortrait title={alternative.title} portraitMd={alternative.portrait_md} shortSummary={alternative.short_summary} />
+      ) : (
+        <TypePortrait title={data.title} portraitMd={data.portrait_md} shortSummary={data.short_summary} />
+      )}
 
-      <ConfidenceBadge confidence={data.confidence} borderline={data.borderline} runnerUp={data.runner_up} />
+      {!showingAlternative && (
+        <>
+          <ConfidenceBadge confidence={data.confidence} borderline={data.borderline} runnerUp={data.runner_up} />
+          <WingHint wing={data.wing} wings={data.wings} />
+        </>
+      )}
 
-      <WingHint wing={data.wing} wings={data.wings} />
+      {alternative && (
+        <AlternativeTypeSwitch
+          viewing={showingAlternative}
+          primaryType={data.type}
+          alternativeType={alternative.type}
+          onToggle={() => setViewingAlternative((prev) => !prev)}
+        />
+      )}
 
       <TelegramCTA sessionId={sessionId} />
     </div>
