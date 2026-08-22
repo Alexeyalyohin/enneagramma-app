@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Тест на тип Эннеаграммы</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;1,400&family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ==========================================================================
+   ЦВЕТА — всё меняется здесь, одной строкой
+   Если у сайта другой акцент, пришли hex, поменяю только --accent
+   ========================================================================== */
+#ennea{
+  --ground:#0D0D12;      /* фон страницы */
+  --surface:#15151C;     /* карточка */
+  --surface-2:#1B1B24;   /* вариант ответа */
+  --ink:#F0EEEA;         /* основной текст */
+  --ink-soft:#9C99A4;    /* второстепенный */
+  --ink-faint:#605D6B;   /* подписи, метки */
+  --line:#282833;        /* границы */
+  --accent:#C89B5A;      /* акцент: активное состояние, результат */
+
+  --r:14px;
+  --maxw:640px;
+
+  background:var(--ground);
+  color:var(--ink);
+  font-family:'Golos Text','Helvetica Neue',Arial,sans-serif;
+  font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;padding:26px 16px 70px;box-sizing:border-box;
+}
+#ennea *,#ennea *::before,#ennea *::after{box-sizing:border-box;}
+#ennea .wrap{max-width:var(--maxw);margin:0 auto;}
+
+#ennea .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;}
+#ennea h1{font-family:Spectral,Georgia,serif;font-weight:600;font-size:clamp(27px,7.4vw,40px);line-height:1.12;margin:12px 0 16px;letter-spacing:-.01em;}
+#ennea h2{font-family:Spectral,Georgia,serif;font-weight:600;font-size:20px;line-height:1.25;margin:0 0 10px;}
+#ennea p{margin:0 0 14px;}
+#ennea .lede{color:var(--ink-soft);font-size:15px;}
+
+/* ---- матрица ---- */
+#ennea .matrix-shell{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 14px 12px;margin-bottom:22px;}
+#ennea .matrix-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;gap:12px;}
+#ennea .matrix-grid{display:grid;grid-template-columns:46px repeat(3,1fr);gap:5px;}
+#ennea .m-collabel,#ennea .m-rowlabel{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.15;}
+#ennea .m-rowlabel{justify-content:flex-end;padding-right:7px;}
+#ennea .m-cell{
+  aspect-ratio:1/1;border-radius:8px;background:rgba(255,255,255,.035);
+  display:flex;align-items:center;justify-content:center;
+  font-family:Spectral,Georgia,serif;font-size:17px;font-weight:600;color:var(--ink-faint);
+  transition:background-color .45s ease,color .45s ease,transform .35s ease;
+}
+#ennea .m-cell.lit{color:var(--ink);}
+#ennea .m-cell.win{background:var(--accent)!important;color:#12121A;transform:scale(1.07);}
+#ennea .m-legend{margin-top:11px;font-size:11px;color:var(--ink-faint);line-height:1.45;}
+#ennea .prog{height:2px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:12px;}
+#ennea .prog i{display:block;height:100%;background:var(--accent);width:0;transition:width .4s ease;}
+
+/* ---- карточка вопроса ---- */
+#ennea .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px 18px;animation:rise .32s ease both;}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+#ennea .qsit{font-family:Spectral,Georgia,serif;font-size:19px;line-height:1.3;font-weight:600;margin:0 0 4px;}
+#ennea .qhint{font-size:12px;color:var(--ink-faint);margin:0 0 16px;}
+
+#ennea .opt{
+  display:block;width:100%;text-align:left;cursor:pointer;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:11px;
+  padding:14px 15px;margin-bottom:9px;
+  font-family:Spectral,Georgia,serif;font-size:15.5px;line-height:1.42;color:var(--ink);
+  transition:border-color .16s,background-color .16s,transform .1s;
+}
+#ennea .opt:hover{border-color:var(--accent);background:#22222C;}
+#ennea .opt:active{transform:scale(.994);}
+#ennea .opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+#ennea .backrow{margin-top:14px;display:flex;justify-content:space-between;align-items:center;}
+#ennea .link{background:none;border:0;padding:4px 0;cursor:pointer;font-family:inherit;font-size:13px;color:var(--ink-faint);text-decoration:underline;text-underline-offset:3px;}
+#ennea .link:hover{color:var(--accent);}
+#ennea .counter{font-size:12px;color:var(--ink-faint);letter-spacing:.04em;}
+
+#ennea .btn{display:inline-block;background:var(--accent);color:#12121A;border:0;border-radius:11px;padding:15px 28px;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;text-decoration:none;transition:filter .16s,transform .1s;}
+#ennea .btn:hover{filter:brightness(1.1);}
+#ennea .btn:active{transform:scale(.985);}
+#ennea .btn:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
+#ennea .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line);}
+#ennea .btn-ghost:hover{border-color:var(--accent);filter:none;}
+
+#ennea .rules{list-style:none;padding:0;margin:0 0 26px;}
+#ennea .rules li{padding:11px 0 11px 26px;border-top:1px solid var(--line);font-size:14.5px;color:var(--ink-soft);position:relative;}
+#ennea .rules li:last-child{border-bottom:1px solid var(--line);}
+#ennea .rules li::before{content:'';position:absolute;left:6px;top:19px;width:5px;height:5px;border-radius:50%;background:var(--accent);}
+
+/* ---- портреты ---- */
+#ennea .portrait{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 17px;margin-bottom:12px;cursor:pointer;transition:border-color .16s;animation:rise .32s ease both;}
+#ennea .portrait:hover{border-color:var(--accent);}
+#ennea .portrait:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+#ennea .p-num{font-family:Spectral,Georgia,serif;font-size:13px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;font-weight:600;margin-bottom:8px;}
+#ennea .p-body{font-family:Spectral,Georgia,serif;font-size:15.5px;line-height:1.58;color:var(--ink);margin:0;}
+#ennea .p-body span{display:block;margin-bottom:11px;}
+#ennea .p-fear{margin-top:13px;padding-top:12px;border-top:1px solid var(--line);font-size:13.5px;color:var(--ink-soft);}
+#ennea .p-fear b{color:var(--ink);font-weight:600;}
+#ennea .p-pick{margin-top:14px;font-size:13px;font-weight:600;color:var(--accent);}
+
+/* ---- результат ---- */
+#ennea .res-hero{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:28px 22px;margin-bottom:14px;}
+#ennea .res-num{font-family:Spectral,Georgia,serif;font-size:68px;line-height:.88;font-weight:300;color:var(--accent);margin-bottom:8px;}
+#ennea .res-name{font-family:Spectral,Georgia,serif;font-size:31px;font-weight:600;line-height:1.1;margin-bottom:16px;}
+#ennea .res-conf{font-size:13.5px;color:var(--ink-soft);line-height:1.55;}
+#ennea .res-conf b{color:var(--ink);font-weight:600;}
+#ennea .box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 17px;margin-bottom:12px;}
+#ennea .box h2{font-size:17px;}
+#ennea .box p:last-child{margin-bottom:0;}
+#ennea .cta{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 14px;}
+
+/* ---- блок обратной связи ---- */
+#ennea .chips{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 16px;}
+#ennea .chip{
+  flex:1 1 42px;min-width:42px;padding:11px 0;text-align:center;cursor:pointer;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:9px;color:var(--ink);
+  font-family:Spectral,Georgia,serif;font-size:16px;font-weight:600;
+  transition:background-color .14s,border-color .14s,color .14s;
+}
+#ennea .chip:hover{border-color:var(--accent);}
+#ennea .chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+#ennea .chip.on{background:var(--accent);border-color:var(--accent);color:#12121A;}
+#ennea .chip.wide{flex:1 1 100%;font-family:inherit;font-size:13px;font-weight:500;padding:12px 0;}
+#ennea .copied{margin-top:11px;font-size:13px;color:var(--accent);font-weight:600;}
+#ennea .dataline{
+  margin-top:12px;padding:11px 12px;background:var(--ground);border:1px solid var(--line);
+  border-radius:9px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;
+  line-height:1.6;color:var(--ink-soft);word-break:break-all;
+}
+
+#ennea details{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);}
+#ennea summary{padding:14px 17px;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink-soft);list-style:none;letter-spacing:.03em;}
+#ennea summary::-webkit-details-marker{display:none;}
+#ennea summary::after{content:' ▾';}
+#ennea details[open] summary::after{content:' ▴';}
+#ennea .debug{padding:0 17px 16px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;line-height:1.7;color:var(--ink-soft);white-space:pre-wrap;word-break:break-word;}
+
+@media (prefers-reduced-motion:reduce){#ennea *{animation:none!important;transition:none!important;}}
+</style>
+</head>
+<body style="margin:0;background:#0D0D12;">
+<div id="ennea"><div class="wrap" id="app"></div></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ==========================================================================
+   ТЕКСТЫ — версия 0.3, с правками Алексея
+   ========================================================================== */
+
+var SITE="https://enneagramma.one/type";
+var TG="https://t.me/enneagramma_one";
+
+// C = соответствующие(1,2,6) | A = уверенные(3,7,8) | W = отстраняющиеся(4,5,9)
+var SOCIAL=[
+ {q:"Когда прихожу в компанию, где почти никого не знаю",o:[
+  {p:"C",t:"Сначала смотрю, как здесь принято, и подстраиваюсь под это."},
+  {p:"A",t:"Веду себя как обычно — пусть привыкают ко мне."},
+  {p:"W",t:"Держусь в стороне и наблюдаю, пока не почувствую себя комфортно."}]},
+ {q:"Мне нужно получить желаемое от другого человека",o:[
+  {p:"C",t:"Сначала расположу к себе — помогу, буду полезным, а потом попрошу."},
+  {p:"A",t:"Говорю прямо, чего хочу, и не отступаю сразу, если отказывают."},
+  {p:"W",t:"Справляюсь сам. Просить — только в крайнем случае."}]},
+ {q:"Отношение к правилам и тому, что от меня ждут",o:[
+  {p:"C",t:"Стараюсь соответствовать — быть правильным и оправдать ожидания."},
+  {p:"A",t:"Если правила мне неудобны — подстраиваю их под себя."},
+  {p:"W",t:"Не спорю и не подчиняюсь — просто остаюсь при своём."}]},
+ {q:"Через что я добываю себе ценность и место",o:[
+  {p:"C",t:"Через то, что я хороший, надёжный и нужный."},
+  {p:"A",t:"Через то, что я сильнее, ярче или успешнее — меня видно."},
+  {p:"W",t:"Через то, что я не гонюсь за местом — в независимости моя ценность."}]},
+ {q:"Что я делаю со своими желаниями рядом с другими",o:[
+  {p:"C",t:"Свои желания легко отодвигаю ради других или ради того, как надо."},
+  {p:"A",t:"Беру то, что хочу, и не стесняюсь этого."},
+  {p:"W",t:"Свои желания держу при себе и реализую без лишних глаз."}]},
+ {q:"Как веду себя в общем деле с людьми",o:[
+  {p:"C",t:"Вписываюсь в общее, поддерживаю, делаю свою часть для всех."},
+  {p:"A",t:"Беру руль и направляю остальных."},
+  {p:"W",t:"Делаю свои задачи самостоятельно, в коллективе мне тяжелее."}]}
+];
+
+// R = рациональные(1,3,5) | E = экспрессивные(4,6,8) | P = позитивные(2,7,9)
+var HARM=[
+ {q:"Когда внутри поднимается тяжёлое чувство",o:[
+  {p:"R",t:"Оно выходит наружу — по мне сразу видно, что чувствую."},
+  {p:"E",t:"«Подавляю» чувство и делаю то, что требуется. Эмоции могут мешать."},
+  {p:"P",t:"Переключаюсь на что-то хорошее — незачем застревать в негативе."}]},
+ {q:"Когда со мной резко спорят",o:[
+  {p:"R",t:"Реагирую сразу и часто эмоционально. Плохо умею терпеть."},
+  {p:"E",t:"Держу тон ровным и разбираю по существу. Эмоции тут мешают."},
+  {p:"P",t:"Сглаживаю углы и пытаюсь избежать конфликта. Ссора никому не нужна."}]},
+ {q:"Как я выгляжу для окружающих, когда мне плохо",o:[
+  {p:"R",t:"Сразу заметно, что что-то не так — я это не прячу."},
+  {p:"E",t:"Со стороны и не скажешь — я собран и держу лицо."},
+  {p:"P",t:"Выгляжу нормально, даже шучу — не хочу загружать других."}]},
+ {q:"Когда наваливается всё и сразу",o:[
+  {p:"R",t:"Эмоции раздражения и тревоги выходят открыто — тяжелее, если держать в себе."},
+  {p:"E",t:"Собираюсь, глушу чувства и перевожу себя в режим «надо»."},
+  {p:"P",t:"Стараюсь не драматизировать и найти лёгкость, иначе не справлюсь."}]},
+ {q:"Что по-настоящему неприятно в других",o:[
+  {p:"R",t:"Когда человек закрытый и холодный — непонятно, что у него внутри."},
+  {p:"E",t:"Когда действуют на эмоциях, а не по фактам."},
+  {p:"P",t:"Когда постоянно жалуются и настроены пессимистично."}]},
+ {q:"Когда мне сделали больно в близких отношениях",o:[
+  {p:"R",t:"Я даю это почувствовать. Молчать и делать вид, что всё «ок», не стану."},
+  {p:"E",t:"Отхожу, разбираю про себя ситуацию и держу себя в руках."},
+  {p:"P",t:"Стараюсь не зацикливаться на негативе, скорее вернуть позитивное русло."}]}
+];
+
+// b = телесный(8,9,1) | h = сердечный(2,3,4) | m = ментальный(5,6,7)
+var CENTER=[
+ {q:"Что включается первым, когда что-то идёт не так",o:[
+  {p:"b",t:"Тело: сразу злюсь и напрягаюсь — либо иду вперёд, либо замираю."},
+  {p:"h",t:"Сердце: сразу накрывает стыдом или обидой — что обо мне подумают?"},
+  {p:"m",t:"Голова: сразу накрывает тревогой — начинаю просчитывать варианты."}]},
+ {q:"Вопрос, который звучит во мне фоном",o:[
+  {p:"b",t:"Как сделать по-своему и остаться собой?"},
+  {p:"h",t:"Кто я и каким меня видят другие?"},
+  {p:"m",t:"Насколько здесь безопасно и что будет дальше?"}]},
+ {q:"Что мне переносить тяжелее всего",o:[
+  {p:"b",t:"Когда меня заставляют и лезут в моё."},
+  {p:"h",t:"Когда меня не ценят или отвергают."},
+  {p:"m",t:"Когда я не понимаю, что происходит."}]}
+];
+
+var PAIRS={
+ "1-5":[[1,"Я чувствую ответственность за то, что происходит вокруг меня.",5,"Как другие ведут свои дела — не моё дело. У меня своё пространство."],[1,"Вижу беспорядок или ошибку — включаюсь и исправляю.",5,"Вижу беспорядок или ошибку — отмечаю про себя и не вмешиваюсь."],[1,"Больше всего боюсь оказаться неправым и плохим.",5,"Больше всего боюсь быть некомпетентным и ошибиться."]],
+ "4-9":[[4,"У меня сильные эмоции, и их тяжело скрывать.",9,"Свои эмоции я сглаживаю, чтобы никого не тревожить."],[4,"Я чувствую, что не похож на окружающих, и многие меня не понимают.",9,"Я чувствую, что сливаюсь с окружающими, и иногда не понимаю, чего хочу сам."],[4,"Чаще замечаю то, чего мне не хватает.",9,"Чаще замечаю, что всё и так нормально."]],
+ "5-9":[[5,"Мне нужно разобраться в теме до конца, иначе чувствую себя неуверенно.",9,"Мне нужно, чтобы вокруг было спокойно и гармонично, иначе теряю опору."],[5,"Зовут туда, куда не хочется - считаю, сколько сил это отнимет и стараюсь не вовлекаться.",9,"Когда зовут туда, куда не хочется - напрямую не отказываю и откладываю, пока само не решится."],[5,"Я чётко чувствую свои границы, и могу их сохранять, не подстраиваясь под других",9,"Мне свойственно подстраиваться под других, даже когда хочется побыть одному"]],
+ "3-5":[[3,"Мне важно, чтобы мои знания и навыки приносили видимый результат и признание.",5,"Знания нужны мне ради самих знаний. Заметит их кто-то или нет — не столь важно."],[3,"Я постоянно сверяюсь с другими: кто чего добился и где я на их фоне.",5,"Мне не нужно ни с кем соревноваться — хватает того, что я сам разбираюсь в своём."],[3,"Больше всего боюсь оказаться неуспешным и незначимым.",5,"Больше всего боюсь оказаться некомпетентным и ошибиться."]],
+ "6-8":[[6,"Инициатива гнетёт инициатора -- не люблю лишней ответственности",8,"Я не боюсь ответственности и часто беру её на себя"],[6,"Рядом со слабыми мне спокойно — помогая им, я чувствую, что не один. Так безопаснее.",8,"Слабых и нерешительных не выношу. Не справляешься — становись сильнее."],[6,"Больше всего боюсь остаться без опоры, один на один с угрозой.",8,"Больше всего боюсь оказаться под чужим контролем и уязвимым."]],
+ "4-8":[[4,"Когда меня ранят, первая реакция — уйти в переживания и обиду.",8,"Когда меня ранят, первая реакция — злость и ответный удар."],[4,"Сентиментальность — часть меня, я её не прячу.",8,"Ранимость я не показываю. Показываю силу."],[4,"Я держусь в стороне, но хочу, чтобы меня заметили и поняли.",8,"Я занимаю пространство и заявляю о себе."]],
+ "2-9":[[2,"Мне важно чувствовать, что люди во мне нуждаются.",9,"Мне важно, чтобы вокруг не было напряжения, даже ценой своих желаний."],[2,"Не могу пройти мимо, если вижу, что человеку нужна помощь.",9,"Мне сложно понять, чего хочу я, когда рядом кто-то заявляет о своих желаниях."],[2,"Больше всего меня задевает, когда мою заботу не ценят и не благодарят.",9,"Больше всего меня задевает чувство неважности, когда меня не замечают."]],
+ "4-6":[[4,"Больше всего задевает мысль, что я такой же, как все.",6,"Больше всего задевает мысль, что непонятно, кому здесь верить."],[4,"Много думаю о своих чувствах и о том, что делает меня собой.",6,"Много думаю о том, что может пойти не так и какое решение верное."],[4,"В отношениях мне важна глубина. Без неё это не по-настоящему.",6,"В отношениях мне важна надёжность. Без неё тревожно."]],
+ "7-9":[[7,"Постоянно придумываю планы и втягиваю в них других.",9,"Чаще подключаюсь к чужим планам, чем строю свои."],[7,"От неприятного ухожу в новое и интересное.",9,"От неприятного ухожу в покой и привычное."],[7,"Мне быстро надоедает рутина, и я переключаюсь.",9,"Мне хорошо в привычном, и я остаюсь в этом."]],
+ "3-8":[[3,"Я слежу за тем, каким меня видят. Эмоции только мешают делу.",8,"Что чувствую, то и видно. Я прямолинеен и эмоции не скрываю."],[3,"Если мне возражают, захожу с другой стороны и убеждаю.",8,"Если мне возражают, давлю сильнее и иду напрямую."],[3,"Ради результата легко сменю позицию или подачу — важна цель, а не то, был ли я «прав».",8,"Не меняю своё мнение даже под давлением — мне тяжело отступать."]],
+ "4-5":[[4,"Я -- это мои чувства. Чувствую -- значит, живу.",5,"Я -- это мои мысли. Мыслю -- значит существую."],[4,"Ухожу в себя, чтобы побыть со своим состоянием.",5,"Ухожу в себя, чтобы подумать и не растратить силы."],[4,"Больше всего боюсь оказаться непонятым и таким же как все.",5,"Больше всего боюсь оказаться беспомощным и без сил."]],
+ "1-3":[[1,"Мне важно, чтобы результат был сделан правильно, даже если никто не оценит.",3,"Мне важно, чтобы результат выглядел успешным в глазах других людей."],[1,"Мне трудно отступить от того, что считаю правильным, даже когда это неудобно.",3,"Легко меняю подход, если старый не производит нужного впечатления."],[1,"Сверяюсь со своими принципами, а не с тем, что здесь принято.",3,"Подстраиваюсь под то, что здесь считается важным."]],
+ "7-8":[[7,"Когда наваливается тяжёлое, переключаюсь на то, что интереснее.",8,"Когда наваливается тяжёлое, иду в него напрямую и разбираюсь."],[7,"Раздражение у меня проходит быстро — нахожу, чем себя занять.",8,"Злость у меня выходит быстро и открыто. Это нормально."],[7,"Мне нужна свобода и открытые возможности.",8,"Мне нужно уважение и контроль над своей территорией."]],
+ "1-6":[[1,"Когда сомневаюсь, спрашиваю себя: а как будет правильно?",6,"Когда сомневаюсь, ищу того, кто подскажет, как поступить."],[1,"Меня злит, когда что-то сделано неправильно или небрежно.",6,"Меня тревожит, когда непонятно, можно ли доверять человеку."],[1,"Мне важно поступать по совести, даже если никто не узнает.",6,"Мне важно, чтобы кто-то поддержал моё решение, прежде чем действовать."]],
+ "2-6":[[2,"Я сближаюсь быстро — через помощь и заботу.",6,"Прежде чем сблизиться, мне нужно человека проверить."],[2,"Заранее чувствую, что человеку может понадобиться.",6,"Заранее прокручиваю в голове, что может пойти не так."],[2,"Мне нужно ощущение, что я нужен и меня ценят.",6,"Мне нужно ощущение, что рядом надёжно."]],
+ "3-7":[[3,"Мне важно, чтобы мои достижения замечали.",7,"Мне важно, чтобы впереди было много вариантов и возможностей."],[3,"Легко меняю образ под тех, на кого хочу произвести впечатление.",7,"Везде одинаковый: стараюсь быть в лёгкости и на позитиве."],[3,"Переключаюсь на новую идею, когда она кажется перспективнее.",7,"Переключаюсь на новую идею, когда старая наскучила."]],
+ "2-7":[[2,"Моё внимание уходит на то, что нужно другим.",7,"Моё внимание уходит на то, что интересно мне."],[2,"Мне тяжело просить что-то для себя.",7,"Мне легко взять от жизни то, что хочу."],[2,"Боюсь оказаться ненужным.",7,"Боюсь оказаться в рамках и всё пропустить."]],
+ "1-2":[[1,"Своё место я заслуживаю тем, что делаю всё как надо.",2,"Своё место я заслуживаю тем, что забочусь о людях."],[1,"Первым делом замечаю, что сделано неправильно, и хочу поправить.",2,"Первым делом замечаю, чего человеку не хватает, и хочу помочь."],[1,"Меня грызёт злость, когда всё делается спустя рукава.",2,"Меня ранит, когда мою заботу не замечают."]],
+ "2-4":[[2,"В отношениях много думаю о том, что нужно другому и как ему помочь.",4,"В отношениях много думаю о том, что чувствую я и понимают ли меня."],[2,"Мне важно быть нужным и ценным для близких.",4,"Мне важно быть особенным, не таким, как все."],[2,"Внимание уходит наружу — к тому, чего не хватает другим.",4,"Внимание уходит внутрь — к тому, чего не хватает мне."]]
+};
+
+var NAMES={1:"Перфекционист",2:"Альтруист",3:"Достигатель",4:"Индивидуалист",5:"Мыслитель",6:"Лоялист",7:"Энтузиаст",8:"Босс",9:"Миротворец"};
+
+var PORTRAITS={
+ 1:{fear:"оказаться плохим и неправым",body:["Я вижу, как должно быть правильно. И вижу, насколько до этого не дотягивает реальность. Моё внимание устроено так, что я замечаю все недостатки. Ошибки и недочёты сами бросаются в глаза.","Я ненавижу, когда что-то сделано не на 100%. Мой внутренний критик строгий к окружающим, а к себе — беспощадный. «И так сойдёт» — фраза, которую мне трудно себе позволить.","Отдых надо заслужить. Долг для меня превыше удовольствия. И меня раздражают люди, которые халтурят и не отвечают за свои слова.","Злиться я себе почти не разрешаю — это некрасиво. Поэтому раздражение копится внутри и выходит скорее осуждением, чем гневом."]},
+ 2:{fear:"оказаться ненужным и нелюбимым",body:["Я замечаю, что нужно другому, раньше, чем он сам это понял. Вижу, кому плохо, кому чего не хватает, и внутри сразу поднимается желание помочь. Отдавать мне легко. Просить для себя — намного сложнее, как и отказывать в просьбе.","Мне важно чувствовать, что я нужен людям. Многое из того, что есть у близких, появилось благодаря мне. Но когда мою заботу не замечают, внутри становится обидно.","Про свои собственные желания я вспоминаю в последнюю очередь. Иногда — когда сил уже не осталось."]},
+ 3:{fear:"оказаться неуспешным и никем",body:["Я не умею просто быть. Мне нужно двигаться, делать, добиваться результатов. Без цели я теряю опору. Лучший отдых для меня — смена деятельности.","Я быстро считываю, что ценится в этом обществе, и легко становлюсь тем, кто произведёт нужное впечатление. В разных компаниях я разный. Я — это мои достижения, и мне важно, чтобы их замечали.","Я всё время сравниваю себя с другими, даже когда не хочу. Чувства умею откладывать, чтобы не мешали работать. Иногда они возвращаются, уже после победы. И тогда я вдруг чувствую: эта цель не дала того, чего я ждал."]},
+ 4:{fear:"оказаться обычным и непонятым",body:["Я не такой, как все. Это одновременно моя боль и моя ценность. Я хочу, чтобы меня по-настоящему поняли, но почти не верю, что это возможно. Поэтому редко делаю первый шаг.","Мне кажется, во мне не хватает чего-то важного — того, что есть у остальных. У других жизнь как будто идёт проще, а я всё время что-то ищу и не нахожу.","Мои чувства глубокие и настоящие, и я не хочу от них отказываться. Даже от грустных. Особенно от грустных — в них я настоящий. Иногда мне даже нравится грустить."]},
+ 5:{fear:"оказаться некомпетентным и ошибиться",body:["Мне спокойнее наблюдать, чем участвовать. Я смотрю на происходящее немного со стороны — даже на свою собственную жизнь. Я не боюсь одиночества, могу даже сказать, что люблю его.","Сил у меня не так много, и я их берегу. Долгие разговоры, чужие ожидания, необходимость быть постоянно на связи — всё это изнуряет меня быстрее, чем даёт что-то взамен. Поэтому я чутко отношусь к границам, как к своим, так и чужим.","Разобраться в чём-то до конца — для меня не увлечение, а необходимость. Пока я не понял, как что-то устроено, я чувствую себя уязвимым. Мир большой и непредсказуемый, а я в нём — маленький.","Свои чувства я тоже будто изучаю со стороны, откладывая на потом. Иногда это «потом» так и не наступает."]},
+ 6:{fear:"остаться без опоры, один на один с угрозой",body:["Я вижу, что может пойти не так, раньше, чем вижу, что может получиться. Меня называют пессимистом. Но я не пессимист — я реалист, который знает про подводные камни. И обычно оказываюсь прав.","Опираться на себя мне трудно. Приняв решение, я продолжаю его перепроверять и часто иду советоваться с тем, кому доверяю. А потом переживаю, что слишком много спрашиваю.","Доверие я не выдаю сразу — его нужно заслужить, и я проверяю. Но если человек прошёл проверку, я буду верен ему по-настоящему и надолго.","Иногда я не жду опасность, а иду ей навстречу первым. Вступаю в конфликт, говорю резко, беру риск на себя. Но это не агрессия. Так я проверяю людей: нет ли у них скрытых мотивов, можно ли им доверять."]},
+ 7:{fear:"оказаться в рамках и потерять свободу",body:["Мне нужно, чтобы впереди было много вариантов. От рамок, обязательств и всего, что нельзя переиграть, внутри поднимается паника. Хотя внешне я, скорее всего, отшучусь.","Я легко загораюсь новым: идеями, людьми, планами. И также легко остываю, когда становится неинтересно. Незаконченных дел у меня много, но я в этом не вижу проблемы: жизнь коротка, чтобы доделывать скучное.","Тяжёлые ситуации я проживаю легче других — умею переключаться. У меня хорошо получается найти плюс в чём угодно и идти дальше.","Но иногда я ловлю себя на том, что мне всё время чего-то не хватает. А получив желаемое — быстро нахожу, чего не хватает ещё."]},
+ 8:{fear:"оказаться слабым и зависимым от других",body:["Я занимаю много места. Прихожу — и с этого момента что-то начинает происходить. Мне не нужно разрешение, чтобы взять ответственность: я просто беру, потому что вижу — иначе не возьмёт никто.","Говорю прямо и от других жду того же. Намёки, недосказанность, попытки управлять мной исподтишка выводят меня быстрее всего. Конфликта я не боюсь: в конфликте люди наконец становятся честными.","Люди для меня делятся на тех, кто может за себя постоять, и тех, кто не может. Своих я защищаю и за близких пойду до конца. Слабость свою не показываю. Не потому что её нет, а потому что показать её значит дать другому преимущество."]},
+ 9:{fear:"потерять связь с людьми и стать неважным",body:["У меня обычно всё нормально. Я умею довольствоваться тем, что есть, и вывести меня из себя трудно.","Я хорошо понимаю разные точки зрения и чаще соглашаюсь, чем спорю. Ссора для меня физически неприятна: как только начинается напряжение, я либо сглаживаю, либо просто отключаюсь и ухожу в свою зону комфорта.","Проблема в том, что я растворяюсь в других — в их вкусах, планах, желаниях. Когда меня прямо спрашивают, чего хочу я, ответа часто нет. Мне проще спросить: «А ты чего хочешь?»","О себе я заявляю редко. Если начну отстаивать свои желания, может выйти конфликт — а я их терпеть не могу. Проще согласиться, а потом тихо сделать по-своему."]}
+};
+
+/* ========================= МОДЕЛЬ ========================= */
+var MATRIX={'C':{'R':6,'E':1,'P':2},'A':{'R':8,'E':3,'P':7},'W':{'R':4,'E':5,'P':9}};
+var ROWS=["C","A","W"],COLS=["R","E","P"];
+var ROWLAB={C:"Соотв.",A:"Увер.",W:"Отстр."};
+var COLLAB={R:"Рацио",E:"Экспр.",P:"Позит."};
+var TYPE_CENTER={1:"b",8:"b",9:"b",2:"h",3:"h",4:"h",5:"m",6:"m",7:"m"};
+var CENTER_NAME={b:"телесный",h:"сердечный",m:"ментальный"};
+
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function pairKey(a,b){return Math.min(a,b)+"-"+Math.max(a,b);}
+
+var QUEUE=[];
+(function(){
+  for(var i=0;i<6;i++){
+    QUEUE.push({kind:"S",qid:"S"+i,data:SOCIAL[i],opts:shuffle(SOCIAL[i].o)});
+    QUEUE.push({kind:"H",qid:"H"+i,data:HARM[i],opts:shuffle(HARM[i].o)});
+  }
+  for(var j=0;j<3;j++) QUEUE.push({kind:"C",qid:"C"+j,data:CENTER[j],opts:shuffle(CENTER[j].o)});
+})();
+
+var S={step:0,phase:"intro",social:{C:0,A:0,W:0},harm:{R:0,E:0,P:0},center:{b:0,h:0,m:0},
+ history:[],answers:{},socialPoles:null,harmPoles:null,socialLevel:null,harmLevel:null,
+ tieQueue:[],tieIdx:0,tieVotes:{},tieLog:[],finalists:[],winner:null,runnerUp:null,
+ centerFlag:null,confidence:0,switched:false,realType:null};
+
+var VERSION="v1.0";
+
+function classify(counts,order){
+  var arr=order.map(function(k){return {k:k,v:counts[k]};});
+  arr.sort(function(a,b){return b.v-a.v;});
+  if(arr[0].v>=4&&arr[0].v-arr[1].v>=2) return {level:"high",poles:[arr[0].k],sorted:arr};
+  if(arr[0].v===2&&arr[1].v===2&&arr[2].v===2) return {level:"low",poles:order.slice(),sorted:arr};
+  return {level:"medium",poles:[arr[0].k,arr[1].k],sorted:arr};
+}
+
+/* ========================= РЕНДЕР ========================= */
+var app=document.getElementById("app");
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");}
+
+function matrixHTML(winType){
+  var h='<div class="matrix-shell"><div class="matrix-head"><span class="eyebrow">Матрица типа</span><span class="counter">'+(S.phase==="base"?("шаг "+(S.step+1)+" из "+QUEUE.length):"")+'</span></div><div class="matrix-grid"><div></div>';
+  COLS.forEach(function(c){h+='<div class="m-collabel">'+COLLAB[c]+'</div>';});
+  ROWS.forEach(function(r){
+    h+='<div class="m-rowlabel">'+ROWLAB[r]+'</div>';
+    COLS.forEach(function(c){
+      var t=MATRIX[r][c], st=(S.social[r]/6+S.harm[c]/6)/2;
+      var a=(0.03+0.95*Math.pow(st,1.7)).toFixed(3);
+      h+='<div class="m-cell'+(st>0.35?" lit":"")+(winType===t?" win":"")+'" style="background:rgba(200,155,90,'+a+')">'+t+'</div>';
+    });
+  });
+  h+='</div><div class="m-legend">Строки — как ты получаешь то, что тебе нужно. Столбцы — как ты обходишься с чувствами. На пересечении один тип.</div>';
+  if(S.phase==="base") h+='<div class="prog"><i style="width:'+Math.round((S.step/QUEUE.length)*100)+'%"></i></div>';
+  return h+'</div>';
+}
+
+function render(){
+  if(S.phase==="intro")return renderIntro();
+  if(S.phase==="base")return renderBase();
+  if(S.phase==="tie")return renderTie();
+  if(S.phase==="portrait")return renderPortrait();
+  if(S.phase==="result")return renderResult();
+}
+
+function renderIntro(){
+  app.innerHTML='<span class="eyebrow">Эннеаграмма · определение типа</span>'+
+  '<h1>Тест на тип Эннеаграммы</h1>'+
+  '<p class="lede">Здесь нет «да» и «нет». В каждом шаге — несколько описаний одной ситуации. Выбирай то, что ближе к тому, как ты реально устроен, а не к тому, каким хотел бы быть.</p>'+
+  '<ul class="rules">'+
+  '<li>Отвечай про большую часть жизни, а не про последний месяц.</li>'+
+  '<li>Ни один вариант не лучше остальных. Все три нормальные.</li>'+
+  '<li>Если завис между двумя — бери тот, который срабатывает первым, до того как ты подумал.</li>'+
+  '<li>15 шагов, дальше тест сам решит, нужны ли уточнения. Обычно 5–8 минут.</li>'+
+  '</ul><button class="btn" id="go">Начать</button>';
+  document.getElementById("go").onclick=function(){S.phase="base";render();};
+  window.scrollTo(0,0);
+}
+
+function renderBase(){
+  var q=QUEUE[S.step];
+  var h=matrixHTML(null)+'<div class="card"><p class="qsit">'+esc(q.data.q)+'</p><p class="qhint">'+(q.kind==="C"?"Проверка центра":"Выбери одно")+'</p>';
+  q.opts.forEach(function(o,i){h+='<button class="opt" data-i="'+i+'">'+esc(o.t)+'</button>';});
+  h+='<div class="backrow">'+(S.history.length?'<button class="link" id="back">Назад</button>':'<span></span>')+'<span class="counter">'+(S.step+1)+' / '+QUEUE.length+'</span></div></div>';
+  app.innerHTML=h;
+  Array.prototype.forEach.call(app.querySelectorAll(".opt"),function(b){b.onclick=function(){pick(q,q.opts[+b.dataset.i]);};});
+  var bk=document.getElementById("back"); if(bk) bk.onclick=goBack;
+}
+
+function pick(q,opt){
+  S.history.push({kind:q.kind,pole:opt.p,qid:q.qid});
+  S.answers[q.qid]=opt.p;
+  if(q.kind==="S")S.social[opt.p]++; else if(q.kind==="H")S.harm[opt.p]++; else S.center[opt.p]++;
+  S.step++;
+  if(S.step>=QUEUE.length)finishBase(); else render();
+  window.scrollTo(0,0);
+}
+
+function goBack(){
+  var last=S.history.pop(); if(!last)return;
+  if(last.qid) delete S.answers[last.qid];
+  if(last.kind==="S")S.social[last.pole]--; else if(last.kind==="H")S.harm[last.pole]--; else S.center[last.pole]--;
+  S.step--; render(); window.scrollTo(0,0);
+}
+
+function finishBase(){
+  var cs=classify(S.social,ROWS), ch=classify(S.harm,COLS), ce=classify(S.center,["b","h","m"]);
+  S.socialPoles=cs.poles; S.socialLevel=cs.level;
+  S.harmPoles=ch.poles; S.harmLevel=ch.level;
+  var declared=ce.level==="low"?null:ce.sorted[0].k, cands=[];
+  S.socialPoles.forEach(function(r){S.harmPoles.forEach(function(c){cands.push(MATRIX[r][c]);});});
+  if(declared===null)S.centerFlag="split";
+  else if(cands.some(function(t){return TYPE_CENTER[t]===declared;}))S.centerFlag="ok";
+  else{
+    S.centerFlag="conflict";
+    if(S.socialLevel==="high"&&cs.sorted[1]){S.socialPoles=[cs.sorted[0].k,cs.sorted[1].k];S.socialLevel="medium";}
+    else if(S.harmLevel==="high"&&ch.sorted[1]){S.harmPoles=[ch.sorted[0].k,ch.sorted[1].k];S.harmLevel="medium";}
+  }
+  buildTies();
+}
+
+function sortPoles(p,c){return p.slice().sort(function(a,b){return c[b]-c[a];});}
+
+function buildTies(){
+  S.socialPoles=sortPoles(S.socialPoles,S.social);
+  S.harmPoles=sortPoles(S.harmPoles,S.harm);
+  if(S.harmPoles.length>1){var row=S.socialPoles[0];startTie(MATRIX[row][S.harmPoles[0]],MATRIX[row][S.harmPoles[1]],"harm");return;}
+  if(S.socialPoles.length>1){var col=S.harmPoles[0];startTie(MATRIX[S.socialPoles[0]][col],MATRIX[S.socialPoles[1]][col],"social");return;}
+  buildFinalists();
+}
+
+function startTie(tA,tB,axis){
+  var key=pairKey(tA,tB),bank=PAIRS[key];
+  if(!bank){S.tieLog.push({pair:key,note:"нет банка"});dropLoser(axis,tA,tB,tA);return;}
+  S.tieQueue=bank.map(function(row){return shuffle([{t:row[0],text:row[1]},{t:row[2],text:row[3]}]);});
+  S.tieIdx=0;S.tieVotes={};S.tieVotes[tA]=0;S.tieVotes[tB]=0;
+  S.tieAxis=axis;S.tieA=tA;S.tieB=tB;S.tieKey=key;
+  S.phase="tie";render();window.scrollTo(0,0);
+}
+
+function renderTie(){
+  var pair=S.tieQueue[S.tieIdx];
+  var h=matrixHTML(null)+'<div class="card"><p class="qsit">Уточняем</p><p class="qhint">Осталось два кандидата. Выбери то, что ближе — шаг '+(S.tieIdx+1)+' из '+S.tieQueue.length+'</p>';
+  pair.forEach(function(o,i){h+='<button class="opt" data-i="'+i+'">'+esc(o.text)+'</button>';});
+  app.innerHTML=h+'</div>';
+  Array.prototype.forEach.call(app.querySelectorAll(".opt"),function(b){
+    b.onclick=function(){
+      var o=pair[+b.dataset.i];
+      S.tieVotes[o.t]=(S.tieVotes[o.t]||0)+1; S.tieIdx++;
+      if(S.tieIdx>=S.tieQueue.length)endTie(); else {render();window.scrollTo(0,0);}
+    };
+  });
+}
+
+function endTie(){
+  var a=S.tieA,b=S.tieB,win=(S.tieVotes[a]>=S.tieVotes[b])?a:b;
+  S.tieLog.push({pair:S.tieKey,votes:a+":"+S.tieVotes[a]+" / "+b+":"+S.tieVotes[b],
+                 short:S.tieKey+"("+S.tieVotes[a]+":"+S.tieVotes[b]+")→"+win,win:win});
+  dropLoser(S.tieAxis,a,b,win);
+}
+
+function dropLoser(axis,tA,tB,win){
+  var lose=(win===tA)?tB:tA;
+  if(axis==="harm"){var row=S.socialPoles[0];S.harmPoles=S.harmPoles.filter(function(c){return MATRIX[row][c]!==lose;});}
+  else{var col=S.harmPoles[0];S.socialPoles=S.socialPoles.filter(function(r){return MATRIX[r][col]!==lose;});}
+  S.lastLoser=lose; buildTies();
+}
+
+function support(t){
+  for(var r=0;r<3;r++)for(var c=0;c<3;c++){if(MATRIX[ROWS[r]][COLS[c]]===t)return S.social[ROWS[r]]+S.harm[COLS[c]];}
+  return 0;
+}
+
+function buildFinalists(){
+  var win=MATRIX[S.socialPoles[0]][S.harmPoles[0]];
+  S.winner=win;
+  var alt=S.lastLoser||null;
+  if(!alt){var n1=win===1?9:win-1,n2=win===9?1:win+1;alt=support(n1)>=support(n2)?n1:n2;}
+  S.runnerUp=alt; S.finalists=[win,alt];
+  S.phase="portrait";render();window.scrollTo(0,0);
+}
+
+function renderPortrait(){
+  app.innerHTML=matrixHTML(null)+'<div class="card" style="margin-bottom:14px"><p class="qsit">Последний шаг</p><p class="qhint" style="margin-bottom:0">Ниже два текста от первого лица. Не разбирай их логически — просто отметь тот, от которого что-то ёкнуло.</p></div>';
+  S.finalists.forEach(function(t){
+    var p=PORTRAITS[t],d=document.createElement("div");
+    d.className="portrait";d.tabIndex=0;d.setAttribute("role","button");
+    d.innerHTML='<div class="p-num">Тип '+t+' · '+NAMES[t]+'</div><div class="p-body">'+
+      p.body.map(function(x){return '<span>'+esc(x)+'</span>';}).join("")+'</div>'+
+      '<div class="p-fear">Главный страх: <b>'+esc(p.fear)+'</b></div><div class="p-pick">Это про меня →</div>';
+    d.onclick=function(){choosePortrait(t);};
+    d.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();choosePortrait(t);}};
+    app.appendChild(d);
+  });
+  window.scrollTo(0,0);
+}
+
+function choosePortrait(t){
+  if(t!==S.winner){S.switched=true;var old=S.winner;S.winner=t;S.runnerUp=old;}
+  computeConfidence(); S.phase="result"; render(); window.scrollTo(0,0);
+}
+
+function computeConfidence(){
+  var c=88;
+  if(S.socialLevel==="medium")c-=8; if(S.socialLevel==="low")c-=16;
+  if(S.harmLevel==="medium")c-=8; if(S.harmLevel==="low")c-=16;
+  if(S.centerFlag==="conflict")c-=12;
+  if(S.centerFlag==="split")c-=5;
+  S.tieLog.forEach(function(l){if(l.votes&&l.votes.indexOf(":2")>-1&&l.votes.indexOf(":1")>-1)c-=5;});
+  if(S.switched)c=Math.min(c,55);
+  S.confidence=Math.max(45,Math.min(92,Math.round(c)));
+}
+
+function wingText(){
+  var w=S.winner,n1=w===1?9:w-1,n2=w===9?1:w+1,s1=support(n1),s2=support(n2);
+  if(s1===s2)return "Крылья "+n1+" и "+n2+" выражены примерно поровну.";
+  var win=s1>s2?n1:n2;
+  return "Предварительное крыло: "+w+"w"+win+" — "+NAMES[win]+".";
+}
+
+/* ---- одна строка со всеми данными прохождения ---- */
+function dataLine(){
+  var p=[];
+  p.push(VERSION);
+  p.push("реал:"+(S.realType||"?"));
+  p.push("итог:"+S.winner);
+  p.push("второй:"+(S.runnerUp||"-"));
+  p.push("увер:"+S.confidence+"%");
+  p.push("C"+S.social.C+"A"+S.social.A+"W"+S.social.W);
+  p.push("R"+S.harm.R+"E"+S.harm.E+"P"+S.harm.P);
+  p.push("b"+S.center.b+"h"+S.center.h+"m"+S.center.m);
+  p.push("оси:"+S.socialLevel.charAt(0)+"/"+S.harmLevel.charAt(0));
+  p.push("центр:"+S.centerFlag);
+  p.push("тб:"+(S.tieLog.length?S.tieLog.map(function(l){return l.short||l.pair;}).join(","):"нет"));
+  p.push("портрет:"+(S.switched?"смена":"ок"));
+  // ---- поайтемный лог: полюс, выбранный на каждом вопросе (для калибровки) ----
+  var order=["S0","S1","S2","S3","S4","S5","H0","H1","H2","H3","H4","H5","C0","C1","C2"];
+  var log=order.map(function(id){return S.answers[id]||"-";}).join("");
+  p.push("лог:"+log);
+  return p.join(" | ");
+}
+
+function copyText(txt,done){
+  if(navigator.clipboard&&window.isSecureContext){
+    navigator.clipboard.writeText(txt).then(done,function(){fallback(txt,done);});
+  } else fallback(txt,done);
+}
+function fallback(txt,done){
+  var ta=document.createElement("textarea");
+  ta.value=txt; ta.setAttribute("readonly","");
+  ta.style.cssText="position:fixed;top:-999px;opacity:0";
+  document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0,99999);
+  try{document.execCommand("copy");}catch(e){}
+  document.body.removeChild(ta); done();
+}
+
+function bindFeedback(){
+  var chips=app.querySelectorAll(".chip");
+  Array.prototype.forEach.call(chips,function(c){
+    c.onclick=function(){
+      Array.prototype.forEach.call(chips,function(x){x.classList.remove("on");});
+      c.classList.add("on");
+      S.realType=c.dataset.t==="0"?"не знаю":c.dataset.t;
+      var pre=document.getElementById("dl"); if(pre) pre.textContent=dataLine();
+    };
+    c.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();c.click();}};
+  });
+  var btn=document.getElementById("copy");
+  if(btn) btn.onclick=function(){
+    copyText(dataLine(),function(){
+      var m=document.getElementById("copied");
+      if(m){m.style.display="block";}
+      btn.textContent="Скопировано ✓";
+      setTimeout(function(){btn.textContent="Скопировать данные";},2500);
+    });
+  };
+}
+
+function renderResult(){
+  var w=S.winner,r=S.runnerUp;
+  var h=matrixHTML(w);
+  h+='<div class="res-hero"><div class="res-num">'+w+'</div><div class="res-name">'+NAMES[w]+'</div>'+
+     '<div class="res-conf">Уверенность определения: <b>'+S.confidence+'%</b><br>Центр — '+CENTER_NAME[TYPE_CENTER[w]]+'. '+esc(wingText())+'</div></div>';
+  h+='<div class="box"><h2>Главный страх</h2><p>'+esc(PORTRAITS[w].fear.charAt(0).toUpperCase()+PORTRAITS[w].fear.slice(1))+'. Всё остальное в твоей личности — это способы с ним не встречаться.</p></div>';
+  if(r&&r!==w){
+    h+='<div class="box"><h2>Второй кандидат — тип '+r+', '+NAMES[r]+'</h2><p class="lede">Если результат не откликается, смотри в эту сторону. Разница здесь: у '+w+' главный страх — '+esc(PORTRAITS[w].fear)+'; у '+r+' — '+esc(PORTRAITS[r].fear)+'. Поведение может совпадать, страх — нет.</p></div>';
+  }
+  if(S.confidence<62){
+    h+='<div class="box"><h2>Результат неустойчивый</h2><p class="lede">Профиль размытый. Так бывает при сильном крыле или когда человек проходит тест в нетипичном для себя состоянии. Такой результат лучше проверить в разговоре, а не принимать на веру.</p></div>';
+  }
+  h+='<div class="cta"><a class="btn" href="'+SITE+w+'" target="_blank" rel="noopener">Подробное описание типа '+w+'</a>'+
+     '<a class="btn btn-ghost" href="'+TG+'" target="_blank" rel="noopener">Телеграм-канал</a></div>';
+  h+='<div class="box"><h2>Помоги улучшить тест</h2>'+
+     '<p class="lede">Если свой тип ты уже знаешь — отметь его. Потом нажми «Скопировать» и вставь строку в комментарии под постом. Особенно нужны те, у кого <b>не совпало</b>.</p>'+
+     '<div class="chips">';
+  for(var i=1;i<=9;i++) h+='<div class="chip" tabindex="0" role="button" data-t="'+i+'">'+i+'</div>';
+  h+='<div class="chip wide" tabindex="0" role="button" data-t="0">Не знаю свой тип точно</div></div>'+
+     '<button class="btn" id="copy">Скопировать данные</button>'+
+     '<p class="copied" id="copied" style="display:none">Скопировано. Вставляй в комментарий под постом.</p>'+
+     '<div class="dataline" id="dl">'+esc(dataLine())+'</div></div>';
+
+  h+='<details><summary>Данные прохождения (для теста на знакомых)</summary><div class="debug">'+
+     'Соц. стиль: C='+S.social.C+' A='+S.social.A+' W='+S.social.W+' → '+S.socialLevel+' ['+S.socialPoles.join(",")+']\n'+
+     'Гарм. стиль: R='+S.harm.R+' E='+S.harm.E+' P='+S.harm.P+' → '+S.harmLevel+' ['+S.harmPoles.join(",")+']\n'+
+     'Центр: тело='+S.center.b+' сердце='+S.center.h+' голова='+S.center.m+' → флаг: '+S.centerFlag+'\n'+
+     'Тай-брейки: '+(S.tieLog.length?S.tieLog.map(function(l){return l.pair+" ("+(l.votes||l.note)+" → "+(l.win||"—")+")";}).join("; "):"не понадобились")+'\n'+
+     'Портрет: '+(S.switched?"переключил на "+w:"подтвердил "+w)+'\n'+
+     'Итог: тип '+w+', уверенность '+S.confidence+'%</div></details>';
+  h+='<div style="margin-top:18px"><button class="btn btn-ghost" id="again">Пройти заново</button></div>';
+  app.innerHTML=h;
+  bindFeedback();
+  document.getElementById("again").onclick=function(){location.reload();};
+}
+
+render();
+})();
+</script>
+</body>
+</html>
