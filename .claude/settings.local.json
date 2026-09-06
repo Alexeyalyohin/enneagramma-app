@@ -10,7 +10,8 @@
       "PowerShell(\"---BUILD---\")",
       "PowerShell(npx tsx _verify-test-engine.ts 2>&1)",
       "PowerShell(npx next typegen 2>&1)",
-      "Bash(gh auth *)"
+      "Bash(gh auth *)",
+      "WebFetch(domain:docs.postgrest.org)"
     ]
   },
   "enabledMcpjsonServers": [

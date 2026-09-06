@@ -35,7 +35,7 @@ export function AlternativeTypeSwitch({
         onClick={onToggle}
         className="w-full justify-center whitespace-normal sm:w-auto"
       >
-        {viewing ? `← Вернуться к Типу ${primaryType}` : `Не откликается? Смотрю Тип ${alternativeType} →`}
+        {viewing ? `← Вернуться к Типу ${primaryType}` : `Не откликается? Смотри Тип ${alternativeType} →`}
       </Button>
     </div>
   )

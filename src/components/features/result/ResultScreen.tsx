@@ -108,6 +108,16 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
       )}
 
       <TelegramCTA sessionId={sessionId} selectedType={displayedType} />
+
+      {/* Чертёж-интерфейса-Эннеаграмма.md, «Тест (результат)»: выход для тех,
+          кто не готов оставить контакт — доступен всегда, без формы. Внешняя
+          ссылка: главная живёт на Tilda (enneagramma.one), не в этом приложении. */}
+      <a
+        href="https://enneagramma.one"
+        className="text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
+      >
+        Вернуться на главную
+      </a>
     </div>
   )
 }
