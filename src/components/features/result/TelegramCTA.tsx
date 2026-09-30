@@ -57,10 +57,10 @@ export function TelegramCTA({ sessionId, selectedType }: TelegramCTAProps) {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+    <div className="flex flex-col gap-4 rounded-xl border border-primary/30 bg-primary/5 p-5 sm:p-6">
       <div>
-        <p className="text-sm font-medium text-foreground">Получи полный разбор в Telegram</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-lg font-semibold text-foreground">Получи полный разбор в Telegram</p>
+        <p className="text-sm text-muted-foreground">
           Пришлём подробный портрет твоего типа и разборы — прямо в Telegram.
         </p>
       </div>
@@ -80,7 +80,8 @@ export function TelegramCTA({ sessionId, selectedType }: TelegramCTAProps) {
       <Button
         onClick={handleClick}
         disabled={!consent || loading}
-        className="h-auto min-h-9 w-full justify-center py-2 whitespace-normal text-center sm:w-auto"
+        size="lg"
+        className="h-auto min-h-12 w-full justify-center py-3 text-base font-semibold whitespace-normal text-center sm:w-auto sm:px-8"
       >
         {loading ? (
           <>

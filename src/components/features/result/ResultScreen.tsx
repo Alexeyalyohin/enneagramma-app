@@ -13,6 +13,7 @@ import { ConfidenceBadge } from './ConfidenceBadge'
 import { ResultSkeleton } from './ResultSkeleton'
 import { TelegramCTA } from './TelegramCTA'
 import { TypePortrait } from './TypePortrait'
+import { TypePortraitHeader } from './TypePortraitHeader'
 import { WingHint } from './WingHint'
 
 type LoadState =
@@ -86,9 +87,9 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
   return (
     <div className="mx-auto flex w-full max-w-180 flex-col gap-6 px-4 py-10 sm:py-14">
       {showingAlternative && alternative ? (
-        <TypePortrait title={alternative.title} portraitMd={alternative.portrait_md} shortSummary={alternative.short_summary} />
+        <TypePortraitHeader title={alternative.title} shortSummary={alternative.short_summary} />
       ) : (
-        <TypePortrait title={data.title} portraitMd={data.portrait_md} shortSummary={data.short_summary} />
+        <TypePortraitHeader title={data.title} shortSummary={data.short_summary} />
       )}
 
       {!showingAlternative && (
@@ -107,7 +108,15 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
         />
       )}
 
+      {/* Задача (2026-09-30): CTA — первое действие на экране, сразу после
+          уверенности/крыла, а не в конце страницы после длинного текста. */}
       <TelegramCTA sessionId={sessionId} selectedType={displayedType} />
+
+      {showingAlternative && alternative ? (
+        <TypePortrait portraitMd={alternative.portrait_md} />
+      ) : (
+        <TypePortrait portraitMd={data.portrait_md} />
+      )}
 
       {/* Чертёж-интерфейса-Эннеаграмма.md, «Тест (результат)»: выход для тех,
           кто не готов оставить контакт — доступен всегда, без формы. Внешняя
