@@ -3,8 +3,13 @@
  * Чертёж.md, БЛОК 3, GROUP «Клуб (хендофф в Salebot)». Публичный, 5/мин на IP.
  *
  * ЭТО НЕ ЧЕКАУТ. Роут не создаёт платёж, не обращается к Prodamus и ничего не
- * знает о цене клуба. Он только фиксирует согласие 152-ФЗ, подписывает токен и
- * отдаёт ссылку в бота — оплату, рекуррент и доступ в канал ведёт Salebot.
+ * знает о цене клуба. Он только фиксирует согласие 152-ФЗ (и лида по телефону)
+ * и отдаёт ссылку в бота — оплату, рекуррент и доступ в канал ведёт бот.
+ *
+ * Ссылка статическая (src/config/telegram-links.ts): платформа бота не
+ * принимает надёжно произвольный `?start=club_<token>`, поэтому подписанный
+ * токен с lead_id/session_id больше не выдаём и `/api/leads/link-telegram`
+ * из этого флоу не вызывается.
  *
  * Edge case 19 (повторный старт при активной подписке): ссылка выдаётся всегда.
  * Проверять активную подписку по нашему зеркалу и «беречь» пользователя от
@@ -19,11 +24,11 @@ import { RATE_LIMITS, enforceRateLimit } from '@/lib/rate-limit'
 import { createServiceClient } from '@/lib/supabase/service'
 import { recordEvent } from '@/lib/events'
 import { toApiErrorResponse } from '@/lib/errors'
-import { logError, logWarn } from '@/lib/logger'
+import { logWarn } from '@/lib/logger'
 import { zPhoneRu } from '@/lib/phone'
 import { hasIssueOn, optionalField } from '@/lib/validation'
 import { resolveLead } from '@/lib/leads/identity'
-import { buildLinkStartPayload } from '@/lib/signing'
+import { TELEGRAM_CLUB_LINK } from '@/config/telegram-links'
 import type { ServiceClient } from '@/lib/supabase/types'
 
 export const runtime = 'nodejs'
@@ -39,12 +44,6 @@ const bodySchema = z
     message: 'Нужен телефон или session_id',
     path: ['identity'],
   })
-
-/** Имя бота Salebot без «@». Реального бота может ещё не быть — тогда плейсхолдер. */
-function botUsername(): string {
-  const raw = process.env.NEXT_PUBLIC_SALEBOT_BOT_USERNAME ?? ''
-  return raw.trim().replace(/^@+/, '')
-}
 
 export async function POST(request: NextRequest) {
   const limited = enforceRateLimit(request, 'club-start', RATE_LIMITS.clubStart)
@@ -66,13 +65,6 @@ export async function POST(request: NextRequest) {
     }
 
     const input = parsed.data
-    const username = botUsername()
-    if (!username) {
-      // Без имени бота ссылка бессмысленна. Это ошибка конфигурации, а не ввода.
-      logError('api.club.start.bot_username_missing', {})
-      return apiError(503, ERROR_CODES.PROVIDER_UNAVAILABLE, 'Бот клуба временно недоступен')
-    }
-
     const supabase = createServiceClient()
 
     const sessionId: string | null = input.session_id ?? null
@@ -89,20 +81,11 @@ export async function POST(request: NextRequest) {
     } else if (sessionId) {
       const session = await loadSession(supabase, sessionId)
       if (!session) {
-        // Токен на несуществующую сессию Salebot ничем не поможет.
         return apiError(404, ERROR_CODES.SESSION_NOT_FOUND, 'Сессия теста не найдена')
       }
       leadId = session.lead_id
       if (leadId) await recordConsent(supabase, leadId)
     }
-
-    // Токен несёт РОВНО ОДИН субъект (лимит Telegram на длину `?start=`,
-    // подробности — в src/lib/signing.ts). Приоритет у lead_id как у
-    // долговечного ключа; session_id — запасной вариант для анонимного лида,
-    // по нему `/api/leads/link-telegram` создаст лида при первом `?start=`.
-    const startPayload = buildLinkStartPayload(
-      leadId ? { lead_id: leadId } : { session_id: sessionId }
-    )
 
     await recordEvent(supabase, {
       eventType: 'club_start_clicked',
@@ -115,7 +98,7 @@ export async function POST(request: NextRequest) {
     })
 
     return apiSuccess({
-      bot_deep_link: `https://t.me/${username}?start=${startPayload}`,
+      bot_deep_link: TELEGRAM_CLUB_LINK,
       lead_id: leadId,
     })
   } catch (error) {

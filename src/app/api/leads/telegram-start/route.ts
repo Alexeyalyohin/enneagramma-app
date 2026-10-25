@@ -1,20 +1,13 @@
 /**
- * POST /api/leads/telegram-start — подписанная ссылка на бота для кнопки
- * «Получить полный разбор в Telegram» на экране результата.
- * Чертёж.md, БЛОК 4, экран «Результат», действие 2: «Клик TelegramCTA →
- * событие telegram_cta_clicked → deep-link в бота Salebot (?start=... с
- * токеном сессии)». Публичный роут, 5/мин на IP.
+ * POST /api/leads/telegram-start — ссылка на бота для кнопки «Получить
+ * полный разбор в Telegram» на экране результата. Публичный роут, 5/мин на IP.
  *
- * Заменяет прежний `/api/leads/telegram-cta-clicked` (тот только писал
- * событие в статическую ссылку без токена — деталь реализации бэкенд-фазы,
- * разошедшаяся с Чертежом; токена не было, Salebot не мог опознать сессию).
- *
- * Лид на этот момент ещё не существует — ни телефона, ни telegram_id нет
- * (CHECK leads_identity_present их требует). Здесь только подписываем токен
- * с session_id (тот же механизм, что и `/api/club/start` — см.
- * src/lib/signing.ts) и фиксируем клик для воронки. Лид создаст Salebot
- * через POST /api/leads/link-telegram, когда пользователь реально стартует
- * бота — там же перенесётся тип теста на лида.
+ * Ссылка статическая, по одной на тип (src/config/telegram-links.ts):
+ * платформа бота не принимает надёжно произвольный `?start=<token>`, поэтому
+ * подписанный токен сессии больше не выдаём. Берётся тип, показанный на
+ * экране (primary или раннер-ап после AlternativeTypeSwitch), без крыла и
+ * процента. Роут по-прежнему фиксирует клик (`telegram_cta_clicked`) и
+ * выбор зрителя (`viewer_selected_type`) для воронки.
  */
 
 import { z } from 'zod'
@@ -25,8 +18,9 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { recordEvent } from '@/lib/events'
 import { toApiErrorResponse } from '@/lib/errors'
 import { logError, logWarn } from '@/lib/logger'
-import { buildLinkStartPayload } from '@/lib/signing'
 import { parseTestResult } from '@/lib/test-engine'
+import type { EnneagramType, TestResult } from '@/lib/test-engine/types'
+import { TELEGRAM_LINKS_BY_TYPE } from '@/config/telegram-links'
 import { optionalField } from '@/lib/validation'
 import type { ServiceClient } from '@/lib/supabase/types'
 
@@ -44,12 +38,6 @@ const bodySchema = z.object({
   selected_type: optionalField(z.coerce.number().int().min(1).max(9)),
 })
 
-/** Имя бота Salebot без «@». Реального бота может ещё не быть — тогда плейсхолдер. */
-function botUsername(): string {
-  const raw = process.env.NEXT_PUBLIC_SALEBOT_BOT_USERNAME ?? ''
-  return raw.trim().replace(/^@+/, '')
-}
-
 export async function POST(request: NextRequest) {
   const limited = enforceRateLimit(request, 'telegram-start', RATE_LIMITS.telegramStart)
   if (limited) return limited
@@ -61,13 +49,6 @@ export async function POST(request: NextRequest) {
     const parsed = bodySchema.safeParse(body.body)
     if (!parsed.success) {
       return apiError(400, ERROR_CODES.CONSENT_REQUIRED, 'Нужно согласие на обработку данных')
-    }
-
-    const username = botUsername()
-    if (!username) {
-      // Без имени бота ссылка бессмысленна. Это ошибка конфигурации, а не ввода.
-      logError('api.leads.telegram_start.bot_username_missing', {})
-      return apiError(503, ERROR_CODES.PROVIDER_UNAVAILABLE, 'Бот временно недоступен')
     }
 
     const { session_id: sessionId, selected_type: selectedType } = parsed.data
@@ -87,19 +68,30 @@ export async function POST(request: NextRequest) {
       return apiError(404, ERROR_CODES.SESSION_NOT_FOUND, 'Сессия теста не найдена')
     }
 
-    if (selectedType !== undefined) {
-      await recordViewerSelection(supabase, sessionId, session.result, selectedType)
+    const result = parseTestResult(session.result)
+    if (!result) {
+      return apiError(409, ERROR_CODES.RESULT_NOT_READY, 'Результат теста ещё не готов')
     }
 
-    const startPayload = buildLinkStartPayload({ session_id: sessionId })
+    const displayedType =
+      selectedType !== undefined
+        ? await recordViewerSelection(supabase, sessionId, result, selectedType)
+        : result.type
+
+    const botLink = TELEGRAM_LINKS_BY_TYPE[displayedType]
+    if (!botLink) {
+      // Ссылка для типа не задана в конфиге — ошибка конфигурации, а не ввода.
+      logError('api.leads.telegram_start.bot_link_missing', { type: displayedType })
+      return apiError(503, ERROR_CODES.PROVIDER_UNAVAILABLE, 'Бот временно недоступен')
+    }
 
     await recordEvent(supabase, {
       eventType: 'telegram_cta_clicked',
       sessionId,
-      metadata: { subject: 'session' },
+      metadata: { subject: 'session', type: displayedType },
     })
 
-    return apiSuccess({ bot_deep_link: `https://t.me/${username}?start=${startPayload}` })
+    return apiSuccess({ bot_deep_link: botLink })
   } catch (error) {
     return toApiErrorResponse(error, 'api.leads.telegram_start.failed')
   }
@@ -118,21 +110,21 @@ export async function POST(request: NextRequest) {
  * `result.type`, ни с `result.runner_up` (испорченный клиент/чужой запрос),
  * колонку не трогаем вовсе — лучше оставить прежнее состояние, чем записать
  * тип, которого для этой сессии не существует.
+ *
+ * Возвращает тип, на чью ссылку вести: выбранный, если он валиден для
+ * сессии, иначе исходный `result.type`.
  */
 async function recordViewerSelection(
   client: ServiceClient,
   sessionId: string,
-  rawResult: unknown,
+  result: TestResult,
   selectedType: number
-): Promise<void> {
-  const result = parseTestResult(rawResult)
-  if (!result) return
-
-  let nextValue: number | null
+): Promise<EnneagramType> {
+  let nextValue: EnneagramType | null
   if (selectedType === result.type) {
     nextValue = null
   } else if (selectedType === result.runner_up) {
-    nextValue = selectedType
+    nextValue = result.runner_up
   } else {
     logWarn('api.leads.telegram_start.selected_type_mismatch', {
       session_id: sessionId,
@@ -140,7 +132,7 @@ async function recordViewerSelection(
       type: result.type,
       runner_up: result.runner_up,
     })
-    return
+    return result.type
   }
 
   const { error } = await client
@@ -151,4 +143,5 @@ async function recordViewerSelection(
   if (error) {
     logError('api.leads.telegram_start.viewer_selection_failed', { session_id: sessionId }, error)
   }
+  return nextValue ?? result.type
 }
