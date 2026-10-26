@@ -1,14 +1,12 @@
 /**
  * Подписи и секреты внешних интеграций.
  *
- * В файле ТРИ независимых механизма — намеренно не смешанных в одну функцию,
+ * В файле ДВА независимых механизма — намеренно не смешанных в одну функцию,
  * потому что у них разные владельцы, разные секреты и разная модель угроз:
  *
- *   1. `signLinkToken` / `verifyLinkToken` — НАШ short-lived токен для deep-link
- *      в бота Salebot (`?start=club_<token>`). Секрет — `LINK_SIGNING_SECRET`.
- *   2. `verifyProdamusSignature` — HMAC-SHA256 входящего вебхука Prodamus.
+ *   1. `verifyProdamusSignature` — HMAC-SHA256 входящего вебхука Prodamus.
  *      Секрет — `PRODAMUS_SECRET_KEY`. Алгоритм диктует провайдер.
- *   3. `verifySalebotSecret` — простой общий секрет в заголовке/URL вебхука
+ *   2. `verifySalebotSecret` — простой общий секрет в заголовке/URL вебхука
  *      Salebot. Это НЕ подпись: сравнивается само значение `SALEBOT_WEBHOOK_SECRET`.
  *
  * Общее правило: все сравнения — constant-time (`timingSafeEqual`), никаких `===`
@@ -38,175 +36,7 @@ function readEnv(name: string): string | null {
 }
 
 // -----------------------------------------------------------------------------
-// 1. Токен deep-link в бота Salebot
-// -----------------------------------------------------------------------------
-
-/**
- * Префикс полезной нагрузки `?start=` (Чертёж: `?start=club_<signed_token>`).
- * Salebot присылает токен в `/api/leads/link-telegram` обычно вместе с ним.
- *
- * Общий для ОБЕИХ кнопок deep-link в проекте — «Получить разбор в Telegram»
- * на экране результата (`/api/leads/telegram-start`) и «Вступить в клуб»
- * (`/api/club/start`): токен просто несёт lead_id/session_id, приложению не
- * нужно различать источник на этапе подписи/проверки — это дело сценария
- * бота на стороне Salebot, если он вообще захочет их различать.
- */
-export const LINK_TOKEN_PREFIX = 'club_'
-
-/** TTL по умолчанию — сутки (edge case 25: просроченный токен отклоняем). */
-export const LINK_TOKEN_TTL_SECONDS = 24 * 60 * 60
-
-const LINK_TOKEN_VERSION = 1
-const SUBJECT_LEAD = 1
-const SUBJECT_SESSION = 2
-/** 128 бит усечённого HMAC — достаточно для суточного токена, экономит длину. */
-const MAC_BYTES = 16
-const PAYLOAD_BYTES = 22 // version(1) + kind(1) + uuid(16) + exp(4)
-
-/**
- * ПОЧЕМУ БИНАРНЫЙ ФОРМАТ, А НЕ JSON+base64.
- *
- * Telegram жёстко ограничивает параметр deep-link: 1–64 символа из набора
- * `A-Z a-z 0-9 _ -`. На `club_` уходит 5 символов, остаётся 59. JSON вида
- * `{"lead_id":"<uuid>","exp":1234567890}` + отдельная подпись base64 не влезают
- * даже близко (~110 символов), а точка-разделитель (JWT-стиль) в `start`
- * вообще запрещена. Поэтому:
- *
- *   payload = [версия:1][вид субъекта:1][UUID:16][exp UNIX-сек, BE:4]  = 22 байта
- *   token   = base64url(payload || HMAC-SHA256(payload)[0..16])        = 51 символ
- *   `club_` + токен                                                    = 56 символов
- *
- * СЛЕДСТВИЕ (осознанный компромисс): в токен помещается РОВНО ОДИН субъект.
- * Пара `lead_id` + `session_id` (38 байт payload) не укладывается в лимит ни при
- * каком разумном размере MAC. Приоритет — `lead_id` (долговечный ключ), и только
- * если лида ещё нет (анонимный проходивший тест) — `session_id`; лид тогда
- * создастся в `link-telegram` по пришедшему `telegram_id`, а сессия подтянется
- * из токена. Функциональной потери нет: по `session_id` лид находится, а по
- * `lead_id` сессия для клубного сценария Salebot не нужна.
- *
- * `exp` как UInt32BE валиден до 2106 года.
- */
-export interface LinkTokenPayload {
-  lead_id?: string
-  session_id?: string
-  /** UNIX-время (секунды) истечения. */
-  exp: number
-}
-
-export interface SignLinkTokenInput {
-  lead_id?: string | null
-  session_id?: string | null
-  /** Явный `exp` (UNIX-сек). Если не задан — считается из `ttl_seconds`. */
-  exp?: number
-  ttl_seconds?: number
-}
-
-export type LinkTokenFailure = 'missing_secret' | 'malformed' | 'bad_signature' | 'expired'
-
-export type LinkTokenVerification =
-  | { valid: true; payload: LinkTokenPayload }
-  | { valid: false; reason: LinkTokenFailure }
-
-const UUID_HEX = /^[0-9a-f]{32}$/i
-
-function uuidToBytes(uuid: string): Buffer {
-  const hex = uuid.replace(/-/g, '')
-  if (!UUID_HEX.test(hex)) throw new Error('link-token: субъект должен быть UUID')
-  return Buffer.from(hex, 'hex')
-}
-
-function bytesToUuid(bytes: Buffer): string {
-  const hex = bytes.toString('hex')
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
-}
-
-function linkSecret(): string | null {
-  return readEnv('LINK_SIGNING_SECRET')
-}
-
-/**
- * Подписывает токен deep-link. Бросает, если нет секрета или субъекта —
- * это ошибка конфигурации/вызова, а не пользовательский сценарий.
- */
-export function signLinkToken(input: SignLinkTokenInput): string {
-  const secret = linkSecret()
-  if (!secret) {
-    throw new Error('LINK_SIGNING_SECRET не задан — токен deep-link подписать нечем')
-  }
-
-  const kind = input.lead_id ? SUBJECT_LEAD : SUBJECT_SESSION
-  const subjectId = input.lead_id ?? input.session_id
-  if (!subjectId) {
-    throw new Error('signLinkToken: нужен lead_id или session_id')
-  }
-
-  const exp = input.exp ?? Math.floor(Date.now() / 1000) + (input.ttl_seconds ?? LINK_TOKEN_TTL_SECONDS)
-
-  const payload = Buffer.alloc(PAYLOAD_BYTES)
-  payload.writeUInt8(LINK_TOKEN_VERSION, 0)
-  payload.writeUInt8(kind, 1)
-  uuidToBytes(subjectId).copy(payload, 2)
-  payload.writeUInt32BE(exp, 18)
-
-  const mac = createHmac('sha256', secret).update(payload).digest().subarray(0, MAC_BYTES)
-  return Buffer.concat([payload, mac]).toString('base64url')
-}
-
-/**
- * Проверяет токен из `?start=club_<token>`: формат → подпись → TTL.
- * Префикс `club_` допускается и снимается — Salebot передаёт `token` целиком.
- */
-export function verifyLinkToken(raw: string, nowSeconds?: number): LinkTokenVerification {
-  const secret = linkSecret()
-  if (!secret) {
-    logError('signing.link_token.missing_secret', {})
-    return { valid: false, reason: 'missing_secret' }
-  }
-
-  const trimmed = raw.trim()
-  const token = trimmed.startsWith(LINK_TOKEN_PREFIX)
-    ? trimmed.slice(LINK_TOKEN_PREFIX.length)
-    : trimmed
-  if (token === '' || !/^[A-Za-z0-9_-]+$/.test(token)) return { valid: false, reason: 'malformed' }
-
-  let decoded: Buffer
-  try {
-    decoded = Buffer.from(token, 'base64url')
-  } catch {
-    return { valid: false, reason: 'malformed' }
-  }
-
-  if (decoded.length !== PAYLOAD_BYTES + MAC_BYTES) return { valid: false, reason: 'malformed' }
-
-  const payload = decoded.subarray(0, PAYLOAD_BYTES)
-  const mac = decoded.subarray(PAYLOAD_BYTES)
-
-  if (payload.readUInt8(0) !== LINK_TOKEN_VERSION) return { valid: false, reason: 'malformed' }
-  const kind = payload.readUInt8(1)
-  if (kind !== SUBJECT_LEAD && kind !== SUBJECT_SESSION) return { valid: false, reason: 'malformed' }
-
-  const expected = createHmac('sha256', secret).update(payload).digest().subarray(0, MAC_BYTES)
-  if (!timingSafeEqual(mac, expected)) return { valid: false, reason: 'bad_signature' }
-
-  const exp = payload.readUInt32BE(18)
-  const now = nowSeconds ?? Math.floor(Date.now() / 1000)
-  if (exp <= now) return { valid: false, reason: 'expired' }
-
-  const subjectId = bytesToUuid(payload.subarray(2, 18))
-  return {
-    valid: true,
-    payload:
-      kind === SUBJECT_LEAD ? { lead_id: subjectId, exp } : { session_id: subjectId, exp },
-  }
-}
-
-/** Готовая нагрузка для `?start=` — подписанный токен с префиксом. */
-export function buildLinkStartPayload(input: SignLinkTokenInput): string {
-  return `${LINK_TOKEN_PREFIX}${signLinkToken(input)}`
-}
-
-// -----------------------------------------------------------------------------
-// 2. Подпись Prodamus (HMAC-SHA256)
+// 1. Подпись Prodamus (HMAC-SHA256)
 // -----------------------------------------------------------------------------
 
 /**
@@ -372,7 +202,7 @@ function listify(value: unknown): unknown {
 }
 
 // -----------------------------------------------------------------------------
-// 3. Секрет Salebot (не подпись — общий секрет)
+// 2. Секрет Salebot (не подпись — общий секрет)
 // -----------------------------------------------------------------------------
 
 /** Заголовки, в которых принимаем секрет Salebot. */

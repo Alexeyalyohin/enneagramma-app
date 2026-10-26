@@ -25,7 +25,7 @@ model: opus
 - Пагинация: `{ "data": [...], "meta": { "total": N, "page": P, "per_page": PP } }`
 
 ## Rate limiting (per IP, из Чертежа БЛОК 5)
-`/api/test/*` — 60/мин; `/api/leads/capture` и `/api/leads/link-telegram` — 10/мин; `/api/club/start` и `/api/waitlist/deposit` — 5/мин; вебхуки — без общего лимита, но проверяются по подписи.
+`/api/test/*` — 60/мин; `/api/leads/capture` — 10/мин; `/api/leads/telegram-start`, `/api/club/start` и `/api/waitlist/deposit` — 5/мин; вебхуки — без общего лимита, но проверяются по подписи.
 
 ## Паттерны авторизации
 - Middleware (`middleware.ts`) для проверки сессии на `/admin/*` и `/api/admin/*`

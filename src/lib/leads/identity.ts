@@ -8,7 +8,7 @@
  * но по нему можно доопознать уже существующего лида (см. ниже).
  *
  * Модуль общий: им пользуются `/api/leads/capture`, `/api/waitlist`,
- * а также `/api/club/start`, `/api/leads/link-telegram` и вебхук Salebot
+ * а также `/api/club/start` и вебхук Salebot
  * (зона integrations-specialist).
  */
 
@@ -18,7 +18,7 @@ import { logWarn } from '@/lib/logger'
 import type { LeadRow, LeadUpdate, ServiceClient } from '@/lib/supabase/types'
 import type { LeadSource } from '@/types/domain'
 
-/** Набор колонок лида, общий для всех выборок модуля (и для `telegram-link.ts`). */
+/** Набор колонок лида, общий для всех выборок модуля. */
 export const LEAD_COLUMNS =
   'id, phone, email, telegram_id, telegram_username, full_name, source, enneagram_type, wing, subscribed_telegram, consent_152fz, consent_at, created_at, updated_at'
 

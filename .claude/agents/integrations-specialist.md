@@ -14,9 +14,11 @@ model: opus
 
 Если задача выглядит как «сделать оплату клуба» или «выдать доступ в канал» — это не твоя задача и не задача приложения вообще: перенаправь на настройку в ЛК Salebot/Prodamus, не пиши код чекаута.
 
-## Salebot: deep-link и хендофф
-- `POST /api/club/start` отдаёт `bot_deep_link: https://t.me/<bot>?start=club_<signed_token>` — `signed_token` кодирует `lead_id`/`session_id` (HMAC, TTL).
-- Salebot вызывает `POST /api/leads/link-telegram` с `token` и `telegram_id`, чтобы привязать подписчика к лиду и получить тип теста для сегментации. Проверяй подпись и TTL токена; истёкший/битый — `400`.
+## Бот: ссылки и хендофф
+- Ссылки в бота статические, без токена — все в `src/config/telegram-links.ts`: платформа бота (ChatPlace) не принимает произвольный параметр после `/start`.
+- `POST /api/leads/telegram-start` (кнопка на экране результата) отдаёт одну из 9 ссылок `https://t.me/Enneagramma_one_bot?start=quiz_type_N` по показанному типу.
+- `POST /api/club/start` («Вступить в клуб») отдаёт `?start=club`.
+- Подписанного токена и `POST /api/leads/link-telegram` больше нет — не возвращай их: связь `telegram_id` ↔ сессия теста осознанно не устанавливается.
 
 ## Вебхук Salebot: `POST /api/webhooks/salebot`
 - Авторизация: секрет Salebot в URL/заголовке (+ опц. HMAC)

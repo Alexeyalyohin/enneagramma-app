@@ -39,7 +39,7 @@ const bodySchema = z
     path: ['identity'],
   })
 
-/** Ссылка на бота для CTA после захвата. Подписанный deep-link выдаёт /api/club/start. */
+/** Ссылка на бота для CTA после захвата. Ссылку клуба выдаёт /api/club/start. */
 function telegramDeepLink(): string {
   return process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL ?? 'https://t.me/enneagramma_one'
 }

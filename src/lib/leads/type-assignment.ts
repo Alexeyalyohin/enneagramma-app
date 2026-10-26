@@ -12,7 +12,6 @@
  */
 
 import { logWarn } from '@/lib/logger'
-import { parseTestResult } from '@/lib/test-engine'
 import type { ServiceClient } from '@/lib/supabase/types'
 import type { EnneagramType } from '@/lib/test-engine'
 
@@ -47,47 +46,6 @@ export async function applyTypeToLead(
   const reason = lead.enneagram_type === null ? 'was_null' : 'newer_result'
   await writeType(client, leadId, input)
   return { applied: true, reason }
-}
-
-export interface CurrentResultSummary {
-  /** Уверенность (0..1) — на самом деле «насколько чётко разошлись два кандидата», не «уверенность именно в этом типе» (см. closeCall). */
-  confidence: number
-  /**
-   * Был тай-брейк между кандидатами ИЛИ итоговая уверенность ниже порога
-   * (edge case 8) — тот же признак «близкого выбора», что решает, показывать
-   * ли альтернативный портрет на экране результата (`/api/test/result`).
-   * Когда true, `confidence` нельзя подписывать как «уверенность в типе X» —
-   * это уверенность в разрыве между X и вторым кандидатом, не в самом X.
-   */
-  closeCall: boolean
-}
-
-/**
- * Confidence/closeCall ПОСЛЕДНЕГО по времени завершённого прохождения лида —
- * им же, по правилу в `applyTypeToLead`, определён текущий `enneagram_type`/
- * `wing`. Для отображения (например, боту Salebot), не для бизнес-правила.
- */
-export async function currentResultSummary(client: ServiceClient, leadId: string): Promise<CurrentResultSummary | null> {
-  const { data, error } = await client
-    .from('test_sessions')
-    .select('result')
-    .eq('lead_id', leadId)
-    .eq('status', 'completed')
-    .not('result', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (error) throw error
-  if (!data) return null
-
-  const result = parseTestResult(data.result)
-  if (!result) return null
-
-  return {
-    confidence: result.confidence,
-    closeCall: result.tiebreak_path.length > 0 || result.borderline,
-  }
 }
 
 async function writeType(

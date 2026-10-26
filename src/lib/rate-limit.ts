@@ -25,13 +25,10 @@ export const RATE_LIMITS = {
   /** `/api/leads/capture` — 10/мин. */
   leadsCapture: 10,
   /**
-   * `/api/leads/telegram-start` — выдаёт подписанный токен deep-link (та же
-   * операция, что и `/api/club/start`), поэтому и лимит тот же — 5/мин, а не
-   * 10/мин как было у старого чисто-событийного `telegram-cta-clicked`.
+   * `/api/leads/telegram-start` — выдаёт ссылку на бота (та же операция,
+   * что и `/api/club/start`), поэтому и лимит тот же — 5/мин.
    */
   telegramStart: 5,
-  /** `/api/leads/link-telegram` — 10/мин (зона integrations-specialist). */
-  leadsLinkTelegram: 10,
   /** `/api/waitlist` — 10/мин: та же цена ошибки, что у захвата лида. */
   waitlist: 10,
   /** `/api/club/start` — 5/мин (зона integrations-specialist). */
