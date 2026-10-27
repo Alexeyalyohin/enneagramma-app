@@ -58,14 +58,3 @@ export const EVENT_TYPES = [
 ] as const
 export type EventType = (typeof EVENT_TYPES)[number]
 
-// События, которые приходят из вебхука Salebot (подмножество EVENT_TYPES).
-export const SALEBOT_EVENT_TYPES = [
-  'subscriber_created',
-  'club_paid',
-  'access_granted',
-  'subscription_renewed',
-  'subscription_past_due',
-  'subscription_churned',
-  'access_revoked',
-] as const
-export type SalebotEventType = (typeof SALEBOT_EVENT_TYPES)[number]

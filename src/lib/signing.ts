@@ -1,13 +1,9 @@
 /**
  * Подписи и секреты внешних интеграций.
  *
- * В файле ДВА независимых механизма — намеренно не смешанных в одну функцию,
- * потому что у них разные владельцы, разные секреты и разная модель угроз:
- *
- *   1. `verifyProdamusSignature` — HMAC-SHA256 входящего вебхука Prodamus.
- *      Секрет — `PRODAMUS_SECRET_KEY`. Алгоритм диктует провайдер.
- *   2. `verifySalebotSecret` — простой общий секрет в заголовке/URL вебхука
- *      Salebot. Это НЕ подпись: сравнивается само значение `SALEBOT_WEBHOOK_SECRET`.
+ * Сейчас здесь один механизм — `verifyProdamusSignature` (HMAC-SHA256
+ * входящего вебхука Prodamus, секрет `PRODAMUS_SECRET_KEY`, алгоритм диктует
+ * провайдер).
  *
  * Общее правило: все сравнения — constant-time (`timingSafeEqual`), никаких `===`
  * по секретам. Отсутствие секрета в env = «не валидно» (fail closed), а не
@@ -36,7 +32,7 @@ function readEnv(name: string): string | null {
 }
 
 // -----------------------------------------------------------------------------
-// 1. Подпись Prodamus (HMAC-SHA256)
+// Подпись Prodamus (HMAC-SHA256)
 // -----------------------------------------------------------------------------
 
 /**
@@ -199,51 +195,4 @@ function listify(value: unknown): unknown {
 
   const isList = keys.length > 0 && keys.every((key, index) => key === String(index))
   return isList ? keys.map((key) => converted[key]) : converted
-}
-
-// -----------------------------------------------------------------------------
-// 2. Секрет Salebot (не подпись — общий секрет)
-// -----------------------------------------------------------------------------
-
-/** Заголовки, в которых принимаем секрет Salebot. */
-const SALEBOT_SECRET_HEADERS = ['x-salebot-secret', 'x-webhook-secret', 'x-api-key'] as const
-/** Параметры URL, в которых принимаем секрет Salebot. */
-const SALEBOT_SECRET_QUERY = ['secret', 'salebot_secret', 'key'] as const
-
-/**
- * Секрет Salebot в заголовке ИЛИ в URL (Чертёж: «секрет Salebot в URL/заголовке»).
- * URL-вариант нужен потому, что конструктор не всегда даёт задать заголовки.
- *
- * ПДн-нюанс: секрет в query попадает в логи Vercel. Это допущение Чертежа;
- * при возможности настраивать заголовок в ЛК Salebot — использовать заголовок.
- */
-export function verifySalebotSecret(request: Request): boolean {
-  const expected = readEnv('SALEBOT_WEBHOOK_SECRET')
-  if (!expected) {
-    logError('signing.salebot.missing_secret', {})
-    return false
-  }
-
-  for (const header of SALEBOT_SECRET_HEADERS) {
-    const provided = request.headers.get(header)
-    if (provided && safeEqual(expected, provided.trim())) return true
-  }
-
-  // `Authorization: Bearer <secret>` — частый вариант в конструкторах.
-  const authorization = request.headers.get('authorization')
-  if (authorization?.toLowerCase().startsWith('bearer ')) {
-    if (safeEqual(expected, authorization.slice(7).trim())) return true
-  }
-
-  try {
-    const url = new URL(request.url)
-    for (const param of SALEBOT_SECRET_QUERY) {
-      const provided = url.searchParams.get(param)
-      if (provided && safeEqual(expected, provided.trim())) return true
-    }
-  } catch {
-    // Некорректный URL — считаем, что секрета нет.
-  }
-
-  return false
 }
