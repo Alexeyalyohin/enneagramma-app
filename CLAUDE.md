@@ -6,7 +6,7 @@
 ## Стек технологий
 - Frontend: Next.js 16 (App Router), TypeScript 5.x, Tailwind CSS v4, shadcn/ui
 - Backend: Supabase (PostgreSQL 15, Auth — только для владельца, RLS, Storage)
-- Деплой: Vercel (фронт + API Routes + Vercel Cron)
+- Деплой: **RelaxDev** (проект `enneagramma-app`, `test.enneagramma.one`) — фронт + API Routes. Деплой = пуш в `master`: RelaxDev сам подхватывает пуш, отдельного шага через Vercel CLI/дашборд нет. Переменные окружения — в панели RelaxDev. Кроны: расписание кронов записано в `vercel.json` в формате Vercel Cron; RelaxDev этот файл не исполняет, поэтому запуск кронов на проде не подтверждён — нужен отдельный планировщик или проверка в панели RelaxDev
 - Платежи: оплату подписки клуба ведёт **ChatPlace** (платёжная интеграция бота). Приложение зовёт Prodamus напрямую только для разового депозита листа ожидания.
 - Telegram: бот `@Enneagramma_one_bot` на **ChatPlace** (внешний конструктор) — приложение не владеет токеном бота. Salebot выведен из эксплуатации (с 23.10.2026 не получает апдейтов)
 - Сайт: существующая Tilda (`enneagramma.one`); тест встраивается iframe с `test.enneagramma.one`
