@@ -17,7 +17,7 @@ model: opus
 ## Таблицы проекта (см. Чертёж.md, БЛОК 2, для точных определений)
 `profiles`, `leads`, `test_sessions`, `type_descriptions`, `club_subscriptions`, `payments`, `waitlist_entries`, `telegram_access_grants`, `events`.
 
-**Важно:** `club_subscriptions` и `telegram_access_grants` — таблицы-**зеркала** Salebot. В них пишет только `service_role` из обработчика `/api/webhooks/salebot`, по событию (`club_paid`, `access_granted`, `subscription_renewed`, ...). Приложение никогда не создаёт/не обновляет эти записи по собственной инициативе — только отражает то, что пришло вебхуком. Идемпотентность зеркал — по `salebot_event_id`.
+**Важно:** `club_subscriptions`/`telegram_access_grants` и колонка `events.salebot_event_id` — исторические таблицы-зеркала времён Salebot: записи больше нет (вебхук удалён), схема оставлена ради истории; метрики клуба в админке — нули, это принято осознанно. Приложение никогда не создаёт/не обновляет эти записи по собственной инициативе.
 
 `leads` — обязателен хотя бы один ключ идентичности: `phone` (E.164) ИЛИ `telegram_id` (см. `CONSTRAINT leads_identity_present`). Дедуп — частичные уникальные индексы, не общий UNIQUE.
 
@@ -39,7 +39,7 @@ model: opus
 - [ ] Индексы созданы для FK и часто используемых фильтров (особенно `created_at`, `status`, ключи идентичности лида)
 - [ ] Типы TypeScript обновлены (`npx supabase gen types`)
 - [ ] Миграция обратима (есть понимание как откатить)
-- [ ] Если таблица — зеркало Salebot: политика записи НЕ открыта для authenticated/anon
+- [ ] Если таблица — зеркало внешней системы (как исторические `club_subscriptions`/`telegram_access_grants`): политика записи НЕ открыта для authenticated/anon
 
 ## Интеграция с MCP
 Если доступен Supabase MCP — используй его для выполнения SQL напрямую. Если нет — создавай файлы миграций в `supabase/migrations/`.

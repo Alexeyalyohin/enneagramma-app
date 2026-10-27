@@ -8,4 +8,4 @@ globs: ["src/app/api/**", "src/actions/**", "src/app/actions/**"]
 - Пагинация: `{ "data": [...], "meta": { "total": N, "page": P, "per_page": PP } }`
 - Rate-limit (per IP): `/api/test/*` — 60/мин; `/api/leads/capture` — 10/мин; `/api/leads/telegram-start`, `/api/club/start`, `/api/waitlist/deposit` — 5/мин
 - Структурированное логирование, типизированные ответы
-- Приложение не реализует чекаут/рекуррент клуба и не вызывает Telegram Bot API — это зона Salebot
+- Приложение не реализует чекаут/рекуррент клуба и не вызывает Telegram Bot API — это зона бота на ChatPlace

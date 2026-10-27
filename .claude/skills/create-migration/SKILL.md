@@ -14,4 +14,4 @@ description: "Создаёт SQL-миграцию для Supabase. Исполь�
    - Комментарии: `COMMENT ON TABLE/COLUMN`
 3. Если доступен Supabase MCP — выполни миграцию
 4. Обнови TypeScript типы если возможно
-5. Если создаваемая таблица — зеркало Salebot (аналог `club_subscriptions`/`telegram_access_grants`): не давай политику записи authenticated/anon, только `is_admin()` на SELECT
+5. Если создаваемая таблица — зеркало внешней системы (как исторические `club_subscriptions`/`telegram_access_grants`): не давай политику записи authenticated/anon, только `is_admin()` на SELECT

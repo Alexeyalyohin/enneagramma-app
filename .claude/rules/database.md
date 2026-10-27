@@ -7,4 +7,4 @@ globs: ["supabase/**", "src/**/*database*", "src/**/*migration*"]
 - Именование таблиц: snake_case, множественное число
 - FK всегда с явным `ON DELETE CASCADE`/`SET NULL`
 - Индексы для FK и часто используемых фильтров
-- `club_subscriptions`/`telegram_access_grants` — зеркала Salebot: пишет только `service_role` из вебхука, не бизнес-логика приложения
+- `club_subscriptions`/`telegram_access_grants` и колонка `events.salebot_event_id` — исторические таблицы-зеркала времён Salebot: записи больше нет (вебхук удалён), схема оставлена ради истории; метрики клуба в админке — нули, это принято осознанно. Не пиши в них из бизнес-логики и не удаляй без отдельного решения (это миграция)

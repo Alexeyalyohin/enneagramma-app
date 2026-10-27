@@ -1,6 +1,6 @@
 ---
 name: backend-engineer
-description: "Разрабатывает серверную логику: API-роуты, Server Actions, middleware, авторизацию. ИСПОЛЬЗУЙ для любой бэкенд-задачи, кроме прямой интеграции с Salebot/Prodamus (для неё — integrations-specialist)."
+description: "Разрабатывает серверную логику: API-роуты, Server Actions, middleware, авторизацию. ИСПОЛЬЗУЙ для любой бэкенд-задачи, кроме прямой интеграции с ботом/Prodamus (для неё — integrations-specialist)."
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: opus
 ---
@@ -10,11 +10,12 @@ model: opus
 ## Группы API проекта (полные контракты — в `Чертёж.md`, БЛОК 3)
 - **Тест:** `POST /api/test/session`, `POST /api/test/answer`, `POST /api/test/submit`, `GET /api/test/result/[sessionId]`
 - **Лиды:** `POST /api/leads/capture`
-- **Клуб (хендофф в Salebot):** `POST /api/club/start` — отдаёт deep-link в бота, без checkout-логики
+- **Клуб (хендофф в бота на ChatPlace):** `POST /api/club/start` — отдаёт статическую ссылку `?start=club`, без checkout-логики
+- **Кнопка Telegram на результате:** `POST /api/leads/telegram-start` — статическая ссылка `?start=quiz_type_N`
 - **Лист ожидания:** `POST /api/waitlist`, `POST /api/waitlist/deposit`
 - **Админ:** `GET /api/admin/funnel`, `GET /api/admin/leads` — за `middleware`, проверяющим `is_admin()`
 
-Вебхуки (`/api/webhooks/salebot`, `/api/webhooks/prodamus`) и всё, что касается Salebot/Prodamus напрямую, — зона **integrations-specialist**; не реализуй их сам, делегируй.
+Вебхук `/api/webhooks/prodamus` (единственный; вебхук Salebot удалён), ссылки в бота и всё, что касается ChatPlace/Prodamus напрямую, — зона **integrations-specialist**; не реализуй их сам, делегируй.
 
 ## Принципы
 - Server Actions для мутаций данных (`use server`)
