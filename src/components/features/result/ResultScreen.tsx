@@ -118,6 +118,23 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
         <TypePortrait portraitMd={data.portrait_md} />
       )}
 
+      <section aria-labelledby="compatibility-heading" className="border-t border-border pt-6">
+        <h2 id="compatibility-heading" className="text-xl font-medium text-foreground">
+          Твой тип в отношениях
+        </h2>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          Посмотри, что вас сближает и как лучше понимать друг друга.
+          {' '}Выбери тип партнёра — свой тип тоже можно изменить.
+        </p>
+        <a
+          href={`https://enneagramma.one/compatibility?type=${displayedType}`}
+          target="_top"
+          className="mt-2 inline-flex min-h-11 items-center text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+        >
+          Посмотреть совместимость →
+        </a>
+      </section>
+
       {/* Чертёж-интерфейса-Эннеаграмма.md, «Тест (результат)»: выход для тех,
           кто не готов оставить контакт — доступен всегда, без формы. Внешняя
           ссылка: главная живёт на Tilda (enneagramma.one), не в этом приложении. */}
