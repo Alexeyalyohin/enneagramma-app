@@ -37,22 +37,57 @@ interface TelegramCTAProps {
 export function TelegramCTA({ sessionId, selectedType }: TelegramCTAProps) {
   const [consent, setConsent] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [fallbackLink, setFallbackLink] = useState<{ sessionId: string; selectedType: number; href: string } | null>(null)
+  const readyHref = consent && fallbackLink?.sessionId === sessionId && fallbackLink.selectedType === selectedType
+    ? fallbackLink.href
+    : null
 
   async function handleClick() {
-    setLoading(true)
-    const result = await apiPost<TelegramStartResponse>('/api/leads/telegram-start', {
-      session_id: sessionId,
-      consent_152fz: true,
-      selected_type: selectedType,
-    })
-    setLoading(false)
-
-    if (!result.ok) {
-      toast.add({ title: 'Не удалось перейти в Telegram', description: result.error.message, type: 'error' })
-      return
+    if (!consent || loading) return
+    // Окно создаётся до сетевого запроса, пока браузер учитывает клик пользователя.
+    let popup: Window | null = null
+    try {
+      popup = window.open('about:blank', '_blank')
+      if (popup) popup.opener = null
+    } catch {
+      popup?.close()
+      popup = null
     }
 
-    window.open(result.data.bot_deep_link, '_blank', 'noopener,noreferrer')
+    setLoading(true)
+    try {
+      const result = await apiPost<TelegramStartResponse>('/api/leads/telegram-start', {
+        session_id: sessionId,
+        consent_152fz: true,
+        selected_type: selectedType,
+      })
+      if (!result.ok) {
+        popup?.close()
+        toast.add({ title: 'Не удалось перейти в Telegram', description: result.error.message, type: 'error' })
+        return
+      }
+
+      const href = result.data.bot_deep_link
+      if (popup && !popup.closed) {
+        try {
+          const link = popup.document.createElement('a')
+          link.href = href
+          link.rel = 'noreferrer'
+          popup.document.body.append(link)
+          link.click()
+          return
+        } catch {
+          // Например, пользователь успел перейти с пустой вкладки на другой сайт.
+        }
+      }
+      // Повторный клик по обычной ссылке работает и при запрете всплывающих окон.
+      setFallbackLink({ sessionId, selectedType, href })
+    } catch {
+      popup?.close()
+      toast.add({ title: 'Не удалось перейти в Telegram', type: 'error' })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -68,7 +103,10 @@ export function TelegramCTA({ sessionId, selectedType }: TelegramCTAProps) {
         <Checkbox
           id="telegram-consent"
           checked={consent}
-          onCheckedChange={(checked) => setConsent(checked === true)}
+          onCheckedChange={(checked) => {
+            setConsent(checked === true)
+            if (checked !== true) setFallbackLink(null)
+          }}
           disabled={loading}
         />
         <div className="flex flex-col items-start gap-1">
@@ -87,7 +125,9 @@ export function TelegramCTA({ sessionId, selectedType }: TelegramCTAProps) {
       </div>
 
       <Button
-        onClick={handleClick}
+        render={readyHref ? <a href={readyHref} target="_top" rel="noreferrer" /> : undefined}
+        nativeButton={!readyHref}
+        onClick={readyHref ? undefined : handleClick}
         disabled={!consent || loading}
         size="lg"
         className="h-auto min-h-12 w-full justify-center py-3 text-base font-semibold whitespace-normal text-center sm:w-auto sm:px-8"
