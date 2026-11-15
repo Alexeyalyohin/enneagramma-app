@@ -71,9 +71,19 @@ export function TelegramCTA({ sessionId, selectedType }: TelegramCTAProps) {
           onCheckedChange={(checked) => setConsent(checked === true)}
           disabled={loading}
         />
-        <Label htmlFor="telegram-consent" className="text-xs leading-snug font-normal text-muted-foreground">
-          Согласен(на) на обработку персональных данных в соответствии с 152-ФЗ
-        </Label>
+        <div className="flex flex-col items-start gap-1">
+          <Label htmlFor="telegram-consent" className="text-xs leading-snug font-normal text-muted-foreground">
+            Согласен(на) на обработку персональных данных в соответствии с 152-ФЗ
+          </Label>
+          <a
+            href="https://enneagramma.one/policy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          >
+            Политика конфиденциальности
+          </a>
+        </div>
       </div>
 
       <Button
