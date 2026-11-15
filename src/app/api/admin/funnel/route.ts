@@ -13,6 +13,8 @@ import { RATE_LIMITS, enforceRateLimit } from '@/lib/rate-limit'
 import { requireAdmin } from '@/lib/auth/admin'
 import { createServiceClient } from '@/lib/supabase/service'
 import { toApiErrorResponse } from '@/lib/errors'
+import { logError } from '@/lib/logger'
+import { getTestStartSources } from '@/lib/admin/test-start-sources'
 import type { EventType } from '@/types/domain'
 import type { ServiceClient } from '@/lib/supabase/types'
 import type { FunnelStep, TestFunnelStepKey } from '@/lib/admin/types'
@@ -103,13 +105,18 @@ export async function GET(request: NextRequest) {
     const periodDays = parsed.data.period
     // TIMESTAMPTZ хранится в UTC, отображение — в MSK (edge case 22).
     // Для окна «последние N дней» смещение не влияет на границу выборки.
-    const sinceIso = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString()
+    const now = Date.now()
+    const sinceIso = new Date(now - periodDays * 24 * 60 * 60 * 1000).toISOString()
 
     const supabase = createServiceClient()
 
-    const [chainCounts, activity] = await Promise.all([
+    const [chainCounts, activity, testStartSources] = await Promise.all([
       Promise.all(TEST_STEPS.map((step) => countTestSessions(supabase, step, sinceIso))),
       Promise.all(ACTIVITY_EVENTS.map(async (key) => ({ key, count: await countEvents(supabase, key, sinceIso) }))),
+      getTestStartSources(supabase, sinceIso, new Date(now).toISOString()).catch((error: unknown) => {
+        logError('api.admin.funnel.sources_failed', {}, error)
+        return null
+      }),
     ])
 
     const steps: FunnelStep[] = TEST_STEPS.map((key, index) => {
@@ -134,6 +141,7 @@ export async function GET(request: NextRequest) {
       period_days: periodDays,
       steps,
       activity,
+      test_start_sources: testStartSources,
       mrr_kopecks: mrrKopecks,
       active_clubs: activeSubscriptions?.length ?? 0,
     })

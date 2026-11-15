@@ -11,6 +11,7 @@ import { formatKopecksToRub, formatPercent } from '@/lib/format'
 import type { FunnelResponse } from '@/lib/admin/types'
 import { FunnelChart } from './FunnelChart'
 import { MetricCard } from './MetricCard'
+import { TestStartSources } from './TestStartSources'
 import { PeriodSwitcher, type Period } from './PeriodSwitcher'
 
 const VALID_PERIODS = new Set<Period>([7, 30, 90])
@@ -98,6 +99,10 @@ export function DashboardScreen() {
             title="Прохождение теста"
             description="Сессии, начатые за выбранный период. Процент рассчитан от предыдущего шага."
           />
+          {data.test_start_sources?.length ? <TestStartSources sources={data.test_start_sources} /> : null}
+          {data.test_start_sources === null && (
+            <p className="text-sm text-muted-foreground">Не удалось загрузить разбивку по UTM-источникам.</p>
+          )}
           <FunnelChart
             steps={data.activity ?? []}
             title="События за период"

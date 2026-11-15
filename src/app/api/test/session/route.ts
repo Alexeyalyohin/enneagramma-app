@@ -9,6 +9,7 @@ import { ERROR_CODES, apiError, apiSuccess, readJsonBody } from '@/lib/api-respo
 import { RATE_LIMITS, enforceRateLimit } from '@/lib/rate-limit'
 import { createServiceClient } from '@/lib/supabase/service'
 import { recordEvent } from '@/lib/events'
+import { cleanTestAttribution } from '@/lib/test/attribution'
 import { toApiErrorResponse } from '@/lib/errors'
 import { logError } from '@/lib/logger'
 import { TEST_VERSION, buildMatrix, buildProgress, computeNextStep, emptyAxisScores } from '@/lib/test-engine'
@@ -16,8 +17,7 @@ import { TEST_VERSION, buildMatrix, buildProgress, computeNextStep, emptyAxisSco
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Тело пустое. Схема оставлена явной: если появятся utm-метки, они добавятся сюда.
-const bodySchema = z.object({})
+const bodySchema = z.object({ utm: z.unknown().optional() })
 
 export async function POST(request: NextRequest) {
   const limited = enforceRateLimit(request, 'test', RATE_LIMITS.test)
@@ -45,7 +45,11 @@ export async function POST(request: NextRequest) {
       return apiError(500, ERROR_CODES.SESSION_CREATE_FAILED, 'Не удалось создать сессию')
     }
 
-    await recordEvent(supabase, { eventType: 'test_started', sessionId: data.id })
+    await recordEvent(supabase, {
+      eventType: 'test_started',
+      sessionId: data.id,
+      metadata: cleanTestAttribution(parsed.data.utm),
+    })
 
     return apiSuccess(
       {
