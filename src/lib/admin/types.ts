@@ -2,8 +2,16 @@
 
 import type { EventType } from '@/types/domain'
 
+export type TestFunnelStepKey =
+  | 'test_started'
+  | 'test_question_5_answered'
+  | 'test_question_15_answered'
+  | 'test_completed'
+
+export type FunnelStepKey = TestFunnelStepKey | EventType
+
 export interface FunnelStep {
-  key: EventType
+  key: FunnelStepKey
   count: number
   cr_from_prev?: number
 }
@@ -11,8 +19,7 @@ export interface FunnelStep {
 export interface FunnelResponse {
   period_days: number
   steps: FunnelStep[]
-  /** Конверсия lead_captured/test_completed — для карточки «Узкое горлышко», см. route.ts. */
-  lead_capture_rate?: number
+  activity: FunnelStep[]
   mrr_kopecks: number
   active_clubs: number
 }

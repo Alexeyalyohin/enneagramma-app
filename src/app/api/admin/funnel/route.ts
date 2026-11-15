@@ -15,6 +15,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { toApiErrorResponse } from '@/lib/errors'
 import type { EventType } from '@/types/domain'
 import type { ServiceClient } from '@/lib/supabase/types'
+import type { FunnelStep, TestFunnelStepKey } from '@/lib/admin/types'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -23,32 +24,44 @@ const querySchema = z.object({
   period: z.coerce.number().int().min(1).max(365).default(30),
 })
 
-/**
- * Основная цепочка воронки: конверсия каждого шага считается от предыдущего.
- * Порядок фиксирован — он же порядок отрисовки столбцов в админке.
- *
- * `lead_captured` сюда намеренно не входит: событие пишет только старый
- * `/api/leads/capture` (форма с телефоном на экране результата), которую
- * убрали в пользу Telegram как основного пути захвата (см. коммит
- * "make Telegram the primary result-screen capture path, drop phone form").
- * Реальный путь теперь test_completed → telegram_cta_clicked напрямую —
- * держать lead_captured как обязательное звено давало абсурдный процент
- * (telegram_cta_clicked делился на почти нулевой мёртвый счётчик).
- */
-const FUNNEL_CHAIN: readonly EventType[] = [
+const TEST_STEPS: readonly TestFunnelStepKey[] = [
   'test_started',
+  'test_question_5_answered',
+  'test_question_15_answered',
   'test_completed',
-  'telegram_cta_clicked',
-  'club_paid',
 ]
 
-/** Боковые метрики: у них нет осмысленного «предыдущего шага» в основной цепочке. */
-const SIDE_STEPS: readonly EventType[] = ['lead_captured', 'waitlist_deposit_paid']
+const ACTIVITY_EVENTS: readonly EventType[] = [
+  'result_viewed',
+  'telegram_cta_clicked',
+  'lead_captured',
+  'club_paid',
+  'waitlist_deposit_paid',
+]
 
-interface FunnelStep {
-  key: EventType
-  count: number
-  cr_from_prev?: number
+async function countTestSessions(
+  client: ServiceClient,
+  step: TestFunnelStepKey,
+  sinceIso: string
+): Promise<number> {
+  let query = client
+    .from('test_sessions')
+    .select('id', { count: 'exact', head: true })
+    .gte('created_at', sinceIso)
+
+  // Первые 15 ответов всегда относятся к основным вопросам, дальше идут уточнения.
+  // Проверяем ID сохранённого ответа, чтобы отличать отсутствующую позицию от заполненной.
+  if (step === 'test_question_5_answered') {
+    query = query.not('answers->4->>q', 'is', null)
+  } else if (step === 'test_question_15_answered') {
+    query = query.not('answers->14->>q', 'is', null)
+  } else if (step === 'test_completed') {
+    query = query.eq('status', 'completed')
+  }
+
+  const { count, error } = await query
+  if (error) throw error
+  return count ?? 0
 }
 
 async function countEvents(
@@ -67,7 +80,7 @@ async function countEvents(
 }
 
 function ratio(current: number, previous: number): number | undefined {
-  if (previous <= 0) return undefined
+  if (previous <= 0 || current > previous) return undefined
   return Math.round((current / previous) * 1000) / 1000
 }
 
@@ -94,31 +107,17 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServiceClient()
 
-    const chainCounts = await Promise.all(
-      FUNNEL_CHAIN.map((eventType) => countEvents(supabase, eventType, sinceIso))
-    )
-    const sideCounts = await Promise.all(
-      SIDE_STEPS.map((eventType) => countEvents(supabase, eventType, sinceIso))
-    )
+    const [chainCounts, activity] = await Promise.all([
+      Promise.all(TEST_STEPS.map((step) => countTestSessions(supabase, step, sinceIso))),
+      Promise.all(ACTIVITY_EVENTS.map(async (key) => ({ key, count: await countEvents(supabase, key, sinceIso) }))),
+    ])
 
-    const steps: FunnelStep[] = FUNNEL_CHAIN.map((key, index) => {
+    const steps: FunnelStep[] = TEST_STEPS.map((key, index) => {
       const count = chainCounts[index]
       if (index === 0) return { key, count }
       const cr = ratio(count, chainCounts[index - 1])
       return cr === undefined ? { key, count } : { key, count, cr_from_prev: cr }
     })
-
-    SIDE_STEPS.forEach((key, index) => steps.push({ key, count: sideCounts[index] }))
-
-    // Конверсия для карточки «Узкое горлышко» (HighlightCard) — считается
-    // явно по имени шага, а не по позиции в FUNNEL_CHAIN: lead_captured в
-    // цепочку намеренно не входит (см. комментарий у FUNNEL_CHAIN), поэтому
-    // обычный cr_from_prev для него не считается. Отдельное поле, а не
-    // cr_from_prev внутри steps — чтобы список FunnelChart не начал рисовать
-    // тот же процент рядом со строкой «Оставили контакт».
-    const testCompletedCount = chainCounts[FUNNEL_CHAIN.indexOf('test_completed')]
-    const leadCapturedCount = sideCounts[SIDE_STEPS.indexOf('lead_captured')]
-    const leadCaptureRate = ratio(leadCapturedCount, testCompletedCount)
 
     // MRR — сумма цен только по активным подпискам зеркала Salebot.
     // past_due в MRR не берём: деньги за период фактически не пришли.
@@ -134,7 +133,7 @@ export async function GET(request: NextRequest) {
     return apiSuccess({
       period_days: periodDays,
       steps,
-      lead_capture_rate: leadCaptureRate,
+      activity,
       mrr_kopecks: mrrKopecks,
       active_clubs: activeSubscriptions?.length ?? 0,
     })

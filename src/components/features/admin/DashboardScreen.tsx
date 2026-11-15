@@ -7,10 +7,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/toast'
 import { apiGet } from '@/lib/fetch-api'
-import { formatKopecksToRub } from '@/lib/format'
+import { formatKopecksToRub, formatPercent } from '@/lib/format'
 import type { FunnelResponse } from '@/lib/admin/types'
 import { FunnelChart } from './FunnelChart'
-import { HighlightCard } from './HighlightCard'
 import { MetricCard } from './MetricCard'
 import { PeriodSwitcher, type Period } from './PeriodSwitcher'
 
@@ -59,8 +58,10 @@ export function DashboardScreen() {
     router.push(`/admin?period=${next}`)
   }
 
-  const leadCapturedStep = data?.steps.find((step) => step.key === 'lead_captured')
-  const isEmpty = data ? data.steps.every((step) => step.count === 0) && data.mrr_kopecks === 0 : false
+  const started = data?.steps.find((step) => step.key === 'test_started')?.count ?? 0
+  const completed = data?.steps.find((step) => step.key === 'test_completed')?.count ?? 0
+  const completionRate = started > 0 && completed <= started ? formatPercent(completed / started) : '—'
+  const isEmpty = data ? [...data.steps, ...(data.activity ?? [])].every((step) => step.count === 0) && data.active_clubs === 0 : false
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -88,11 +89,20 @@ export function DashboardScreen() {
       {!loading && data && !isEmpty && (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <HighlightCard count={leadCapturedStep?.count ?? 0} crFromPrev={data.lead_capture_rate} />
-            <MetricCard label="MRR клуба" value={formatKopecksToRub(data.mrr_kopecks)} />
-            <MetricCard label="Активные подписки" value={String(data.active_clubs)} />
+            <MetricCard label="Завершили тест от начавших" value={completionRate} />
+            <MetricCard label="MRR клуба (архив)" value={formatKopecksToRub(data.mrr_kopecks)} />
+            <MetricCard label="Активные подписки (архив)" value={String(data.active_clubs)} />
           </div>
-          <FunnelChart steps={data.steps} />
+          <FunnelChart
+            steps={data.steps}
+            title="Прохождение теста"
+            description="Сессии, начатые за выбранный период. Процент рассчитан от предыдущего шага."
+          />
+          <FunnelChart
+            steps={data.activity ?? []}
+            title="События за период"
+            description="Повторные просмотры и клики учитываются отдельно."
+          />
         </>
       )}
     </div>
