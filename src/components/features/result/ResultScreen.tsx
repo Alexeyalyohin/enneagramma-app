@@ -145,7 +145,7 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
           кто не готов оставить контакт — доступен всегда, без формы. Внешняя
           ссылка: главная живёт на Tilda (enneagramma.one), не в этом приложении. */}
       <nav aria-label="Ссылки сайта" className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-        <a href="https://enneagramma.one" className="underline-offset-4 hover:underline">
+        <a href="https://enneagramma.one" target="_top" className="underline-offset-4 hover:underline">
           Вернуться на главную
         </a>
         <a
