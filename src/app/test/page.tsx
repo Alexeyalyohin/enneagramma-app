@@ -4,6 +4,7 @@ import { TestScreen } from '@/components/features/test/TestScreen'
 export const metadata: Metadata = {
   title: 'Пройди тест — Эннеаграмма.one',
   description: 'Адаптивный тест на 3×3: узнай свой тип личности за пару минут.',
+  robots: { index: false, follow: true },
 }
 
 export default function TestPage() {

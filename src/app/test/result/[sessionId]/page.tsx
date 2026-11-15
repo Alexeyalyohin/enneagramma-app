@@ -4,6 +4,7 @@ import { ResultScreen } from '@/components/features/result/ResultScreen'
 export const metadata: Metadata = {
   title: 'Твой результат — Эннеаграмма.one',
   description: 'Портрет твоего типа личности и что с ним делать дальше.',
+  robots: { index: false, follow: false },
 }
 
 interface ResultPageProps {
