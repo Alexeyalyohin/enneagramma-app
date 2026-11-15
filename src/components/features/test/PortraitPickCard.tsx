@@ -10,28 +10,24 @@ interface PortraitPickCardProps {
   disabled?: boolean
 }
 
-/**
- * Финальный шаг из эталона v1.0: два коротких портрета от первого лица,
- * пользователь выбирает тот, что «ёкнул» — выбор может переопределить
- * алгоритмического победителя (см. TestResult.switched).
- */
+/** Финальный шаг: выбор между двумя короткими описаниями от первого лица. */
 export function PortraitPickCard({ candidates, onPick, disabled = false }: PortraitPickCardProps) {
   return (
     <div className="flex flex-col gap-4">
       <div>
         <p className="text-lg leading-snug font-medium text-foreground">Последний шаг</p>
         <p className="text-sm text-muted-foreground">
-          Ниже два текста от первого лица. Не разбирай их логически — просто отметь тот, от которого
-          что-то ёкнуло.
+          Прочитай два описания и отметь то, в котором больше узнаёшь себя.
         </p>
       </div>
 
-      {candidates.map((candidate) => (
+      {candidates.map((candidate, index) => (
         <Card
           key={candidate.type}
           role="button"
           tabIndex={disabled ? -1 : 0}
           aria-disabled={disabled}
+          aria-label={`Выбрать описание ${index + 1}`}
           onClick={() => !disabled && onPick(candidate.type)}
           onKeyDown={(event) => {
             if (disabled) return
@@ -46,7 +42,7 @@ export function PortraitPickCard({ candidates, onPick, disabled = false }: Portr
           )}
         >
           <p className="mb-2 text-xs font-semibold tracking-wide text-primary uppercase">
-            Тип {candidate.type} · {candidate.name}
+            Описание {index + 1}
           </p>
           <div className="flex flex-col gap-2.5 font-serif text-[15.5px] leading-relaxed text-foreground">
             {candidate.body.map((paragraph, index) => (

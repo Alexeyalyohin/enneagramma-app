@@ -14,9 +14,10 @@ export type EnneagramType = (typeof ENNEAGRAM_TYPES)[number]
  * Версия механики. Пишется в `test_sessions.version` — результаты версий
  * несопоставимы. v1.0 — перенос алгоритма из эталона `ennea-test-v1_0.html`
  * (сменил v0.4 — формульную реализацию по Чертёж.md БЛОК 5 без пошагового
- * нокаута и без шага выбора портрета).
+ * нокаута и без шага выбора портрета). v1.1 учитывает ничью по центру и
+ * сохраняет выбор портрета отдельно от типа по ответам.
  */
-export const TEST_VERSION = 'v1.0'
+export const TEST_VERSION = 'v1.1'
 
 /** Минимум ответов до расчёта результата: 12 триад + 3 вопроса центра. */
 export const MIN_ANSWERS = 15
@@ -64,6 +65,8 @@ export interface AxisScores {
 export interface TestResult {
   type: EnneagramType
   wing: EnneagramType
+  wing_tied: boolean
+  portrait_type: EnneagramType | null
   confidence: number
   runner_up: EnneagramType
   /** Идентификаторы заданных tiebreak-вопросов в порядке предъявления. */
@@ -91,8 +94,8 @@ export interface PortraitCandidate {
  * такая же форсированная тройка вариантов. Различить их можно по полю `axis`.
  *
  * `portrait_pick` — финальный шаг из эталона v1.0: пользователь читает два
- * коротких портрета от первого лица и выбирает тот, что «ёкнул»; выбор может
- * переопределить алгоритмического победителя (см. `TestResult.switched`).
+ * коротких портрета от первого лица и отмечает, какой ближе. С версии v1.1
+ * этот выбор сохраняется отдельно от типа по ответам.
  */
 export type NextStep =
   | {
@@ -119,6 +122,8 @@ export type NextStep =
 export interface TestProgress {
   answered: number
   total_min: number
+  /** Может отсутствовать в локальных снимках, сохранённых до v1.1. */
+  clarifications_answered?: number
 }
 
 /** Живая матрица для визуализации сетки 3×3 на фронте. */

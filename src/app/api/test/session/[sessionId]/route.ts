@@ -39,7 +39,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ses
     const supabase = createServiceClient()
     const { data: session, error } = await supabase
       .from('test_sessions')
-      .select('id, status, answers')
+      .select('id, status, answers, version')
       .eq('id', parsed.data.sessionId)
       .maybeSingle()
 
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ses
 
     return apiSuccess({
       session_id: session.id,
-      next: computeNextStep(answers),
+      next: computeNextStep(answers, session.version),
       progress: buildProgress(answers),
       matrix: buildMatrix(scores),
     })

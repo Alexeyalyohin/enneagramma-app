@@ -101,7 +101,7 @@ export function classifyAxis<TValue extends string>(
 }
 
 // ============================================================================
-// 2. finishBase() — сверка с центром, при конфликте — понижение high→medium
+// 2. Сверка с центром: при конфликте понижаем high → medium.
 // ============================================================================
 
 export type CenterFlag = 'ok' | 'conflict' | 'split'
@@ -121,7 +121,7 @@ export interface BaseAssessment extends BaseState {
   center: AxisClassification<Center>
 }
 
-export function assessBase(scores: AxisScores): BaseAssessment {
+export function assessBase(scores: AxisScores, legacyCenter = false): BaseAssessment {
   const social = classifyAxis(scores.social, SOCIAL_ORDER)
   const harmonic = classifyAxis(scores.harmonic, HARMONIC_ORDER)
   const center = classifyAxis(scores.center, CENTER_ORDER)
@@ -131,7 +131,11 @@ export function assessBase(scores: AxisScores): BaseAssessment {
   let harmPoles = harmonic.poles
   let harmLevel = harmonic.level
 
-  const declared = center.level === 'low' ? null : center.sorted[0].key
+  // На центр приходится три ответа, поэтому ничья 1/1/1 определяется отдельно.
+  const centerTied = center.sorted[0].value === center.sorted[1].value
+  const declared = (legacyCenter ? center.level === 'low' : centerTied)
+    ? null
+    : center.sorted[0].key
   const candidates: EnneagramType[] = []
   for (const s of socialPoles) for (const h of harmPoles) candidates.push(typeFromCell(s, h))
 
@@ -299,8 +303,7 @@ export function buildFinalists(
 }
 
 // ============================================================================
-// 5. computeConfidence() — формула эталона 1-в-1: старт 88, дискретные штрафы,
-//    потолок 55 при переопределении портрета, клэмп [45, 92].
+// 5. Внутренний балл, используемый для флага пограничного результата.
 // ============================================================================
 
 export interface ConfidenceInputs {
@@ -308,7 +311,7 @@ export interface ConfidenceInputs {
   harmLevel: AxisLevel
   centerFlag: CenterFlag
   tieLog: readonly TieRound[]
-  /** Пользователь на шаге выбора портрета выбрал НЕ алгоритмического победителя. */
+  /** Только для старых сессий: выбранный портрет переопределил расчётный тип. */
   switched: boolean
 }
 
@@ -342,13 +345,15 @@ export const BORDERLINE_THRESHOLD = 0.62
 // ============================================================================
 
 /**
- * Крыло финального типа. При равной поддержке эталон не форсирует выбор
- * (текст «выражены примерно поровну») — здесь нужен конкретный тип для
- * `leads.wing`, поэтому равенство разрешается в пользу правого соседа
- * (`type+1`), как и в v0.4: детерминированный дефолт без содержательного
- * предпочтения.
+ * При равной поддержке сохраняем прежнее значение для `leads.wing`,
+ * а флаг ничьей позволяет экрану показать оба крыла как равнозначные.
  */
-export function pickWing(type: EnneagramType, scores: AxisScores): EnneagramType {
+export function assessWing(type: EnneagramType, scores: AxisScores) {
   const [left, right] = neighborsOf(type)
-  return supportScore(left, scores) > supportScore(right, scores) ? left : right
+  const leftSupport = supportScore(left, scores)
+  const rightSupport = supportScore(right, scores)
+  return {
+    wing: leftSupport > rightSupport ? left : right,
+    tied: leftSupport === rightSupport,
+  }
 }

@@ -83,6 +83,7 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
   const alternative = data.alternative
   const showingAlternative = viewingAlternative && alternative !== null
   const displayedType = showingAlternative && alternative ? alternative.type : data.type
+  const portraitDisagrees = typeof data.portrait_type === 'number' && data.portrait_type !== data.type
 
   return (
     <div className="mx-auto flex w-full max-w-180 flex-col gap-6 px-4 py-10 sm:py-14">
@@ -94,8 +95,8 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
 
       {!showingAlternative && (
         <>
-          <ConfidenceBadge confidence={data.confidence} borderline={data.borderline} runnerUp={data.runner_up} />
-          <WingHint wing={data.wing} wings={data.wings} />
+          <ConfidenceBadge borderline={data.borderline} runnerUp={data.runner_up} />
+          <WingHint wing={data.wing} wings={data.wings} tied={data.wing_tied} />
         </>
       )}
 
@@ -104,6 +105,7 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
           viewing={showingAlternative}
           primaryType={data.type}
           alternativeType={alternative.type}
+          portraitDisagrees={portraitDisagrees}
           onToggle={() => setViewingAlternative((prev) => !prev)}
         />
       )}
@@ -111,6 +113,10 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
       {/* Задача (2026-09-30): CTA — первое действие на экране, сразу после
           уверенности/крыла, а не в конце страницы после длинного текста. */}
       <TelegramCTA sessionId={sessionId} selectedType={displayedType} />
+
+      <p className="text-sm text-muted-foreground">
+        Используй результат как гипотезу для самонаблюдения. Тест не предназначен для психологической диагностики.
+      </p>
 
       {showingAlternative && alternative ? (
         <TypePortrait portraitMd={alternative.portrait_md} />
