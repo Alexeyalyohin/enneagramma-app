@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiGet, apiPost } from '@/lib/fetch-api'
+import { readTestAttribution } from './attribution'
 import type { MatrixSnapshot, NextStep, TestProgress } from '@/lib/test-engine'
 import { clearTestState, loadTestState, saveTestState, type HistoryEntry } from './storage'
 
@@ -96,7 +97,8 @@ export function useTestSession(): UseTestSessionResult {
     setSubmitError(null)
     clearTestState()
 
-    const result = await apiPost<SessionResponse>('/api/test/session', {})
+    const utm = await readTestAttribution()
+    const result = await apiPost<SessionResponse>('/api/test/session', { utm })
     if (!result.ok) {
       setFatalMessage(result.error.message)
       setPhase('fatal')

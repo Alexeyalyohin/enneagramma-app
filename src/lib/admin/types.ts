@@ -16,10 +16,16 @@ export interface FunnelStep {
   cr_from_prev?: number
 }
 
+export interface TestStartSource {
+  source: string | null
+  count: number
+}
+
 export interface FunnelResponse {
   period_days: number
   steps: FunnelStep[]
   activity: FunnelStep[]
+  test_start_sources?: TestStartSource[] | null
   mrr_kopecks: number
   active_clubs: number
 }
