@@ -1,13 +1,15 @@
 import Link from 'next/link'
 import { formatPercent } from '@/lib/format'
-import type { EventType } from '@/types/domain'
-import type { FunnelStep } from '@/lib/admin/types'
+import type { FunnelStep, FunnelStepKey } from '@/lib/admin/types'
 
-const STEP_LABELS: Partial<Record<EventType, string>> = {
+const STEP_LABELS: Partial<Record<FunnelStepKey, string>> = {
   test_started: 'Начали тест',
+  test_question_5_answered: 'Ответили на 5-й вопрос',
+  test_question_15_answered: 'Ответили на 15-й вопрос',
   test_completed: 'Завершили тест',
   lead_captured: 'Оставили контакт',
-  telegram_cta_clicked: 'Перешли в Telegram',
+  result_viewed: 'Просмотры результата',
+  telegram_cta_clicked: 'Клики по кнопке Telegram',
   club_paid: 'Оплатили клуб',
   waitlist_deposit_paid: 'Внесли депозит',
 }
@@ -16,7 +18,7 @@ const STEP_LABELS: Partial<Record<EventType, string>> = {
  * Шаги, у которых есть прямое соответствие фильтру `stage` в `/admin/leads`
  * (Чертёж.md, GROUP «Админ»). У остальных шагов ссылки нет — намеренно.
  */
-const STAGE_BY_EVENT: Partial<Record<EventType, string>> = {
+const STAGE_BY_EVENT: Partial<Record<FunnelStepKey, string>> = {
   lead_captured: 'captured',
   club_paid: 'club',
   waitlist_deposit_paid: 'waitlist',
@@ -24,15 +26,20 @@ const STAGE_BY_EVENT: Partial<Record<EventType, string>> = {
 
 interface FunnelChartProps {
   steps: FunnelStep[]
+  title: string
+  description: string
 }
 
 /** Столбцы конверсии по шагам воронки (Чертёж.md, БЛОК 4: `FunnelChart`). */
-export function FunnelChart({ steps }: FunnelChartProps) {
+export function FunnelChart({ steps, title, description }: FunnelChartProps) {
   const max = Math.max(1, ...steps.map((step) => step.count))
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
-      <h2 className="text-sm font-medium text-foreground">Воронка</h2>
+      <div>
+        <h2 className="text-sm font-medium text-foreground">{title}</h2>
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+      </div>
       <ul className="flex flex-col gap-3">
         {steps.map((step) => {
           const width = Math.max(4, Math.round((step.count / max) * 100))
