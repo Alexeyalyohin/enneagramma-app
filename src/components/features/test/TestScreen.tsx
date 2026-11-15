@@ -15,6 +15,7 @@ import { TriadCard } from './TriadCard'
 export function TestScreen() {
   const {
     phase,
+    lastResult,
     step,
     progress,
     canGoBack,
@@ -41,7 +42,7 @@ export function TestScreen() {
   if (phase === 'intro') {
     return (
       <div className="mx-auto w-full max-w-[640px] px-4 py-8 sm:py-12 lg:max-w-[900px]">
-        <TestIntro onStart={beginTest} />
+        <TestIntro onStart={beginTest} lastResult={lastResult} />
       </div>
     )
   }
