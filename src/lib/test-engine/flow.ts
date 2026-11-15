@@ -1,10 +1,10 @@
 /**
  * Адаптивный поток теста: какой вопрос следующий и какой итог.
- * Перенесено 1-в-1 из эталона `ennea-test-v1_0.html` под stateless-архитектуру
+ * Основано на эталоне `ennea-test-v1_0.html` и работает в stateless-архитектуре
  * приложения (состояние — только `test_sessions.answers`, движок его читает
  * заново на каждый запрос; см. подробное пояснение в scoring.ts).
  *
- * Порядок предъявления: 12 триад → 3 вопроса центра → 0–9 tiebreak-вопросов
+ * Порядок предъявления: 12 триад → 3 вопроса центра → 0–12 tiebreak-вопросов
  * (пошаговый нокаут, порциями по 3) → выбор портрета → ready.
  */
 
@@ -13,9 +13,9 @@ import { ORDERED_BASE_QUESTIONS, TIEBREAK_ITEMS } from './questions'
 import {
   BORDERLINE_THRESHOLD,
   assessBase,
+  assessWing,
   buildFinalists,
   computeConfidence,
-  pickWing,
   resolveTies,
   scoreAnswers,
 } from './scoring'
@@ -35,6 +35,11 @@ const BASE_QUESTION_IDS = new Set(ORDERED_BASE_QUESTIONS.map((q) => q.id))
 /** Псевдо-ID финального шага — не входит ни в один банк вопросов. */
 const PORTRAIT_PICK_ID = 'portrait_pick'
 
+// Уже начатые сессии продолжают тот маршрут, по которому сохранялись их ответы.
+function usesLegacyScoring(version: string): boolean {
+  return version === 'v1.0' || version === 'v0.4'
+}
+
 function answersMap(answers: readonly StoredAnswer[]): Map<string, string> {
   return new Map<string, string>(answers.map((answer) => [answer.q, answer.choice] as const))
 }
@@ -45,7 +50,13 @@ export function countBaseAnswers(answers: readonly StoredAnswer[]): number {
 }
 
 export function buildProgress(answers: readonly StoredAnswer[]): TestProgress {
-  return { answered: countBaseAnswers(answers), total_min: BASE_QUESTION_IDS.size }
+  const answered = countBaseAnswers(answers)
+  const portraitAnswered = answers.some((answer) => answer.q === PORTRAIT_PICK_ID)
+  return {
+    answered,
+    total_min: BASE_QUESTION_IDS.size,
+    clarifications_answered: answers.length - answered - Number(portraitAnswered),
+  }
 }
 
 export function buildMatrix(scores: AxisScores): MatrixSnapshot {
@@ -56,10 +67,10 @@ export function buildMatrix(scores: AxisScores): MatrixSnapshot {
  * Итог разрешения ничьих + финалисты — общая часть для `computeNextStep`
  * (нужно знать, дошли ли до шага портрета) и `computeResult`.
  */
-function resolveToFinalists(answers: readonly StoredAnswer[]) {
+function resolveToFinalists(answers: readonly StoredAnswer[], legacyCenter: boolean) {
   const answered = answersMap(answers)
   const scores = scoreAnswers(answers)
-  const base = assessBase(scores)
+  const base = assessBase(scores, legacyCenter)
   const tie = resolveTies(base.socialPoles, base.harmPoles, scores, answered)
   return { scores, base, tie }
 }
@@ -68,10 +79,10 @@ function resolveToFinalists(answers: readonly StoredAnswer[]) {
  * Следующий шаг по уже сохранённым ответам.
  *
  * Порядок: сперва все 15 базовых вопросов по порядку; затем — пока разрешение
- * спорных полюсов не завершено — очередной tiebreak-вопрос (может быть до 9,
+ * спорных полюсов не завершено — очередной tiebreak-вопрос (может быть до 12,
  * если на обеих осях была тройная ничья); затем — шаг выбора портрета; затем ready.
  */
-export function computeNextStep(answers: readonly StoredAnswer[]): NextStep {
+export function computeNextStep(answers: readonly StoredAnswer[], version: string = TEST_VERSION): NextStep {
   const answered = answersMap(answers)
 
   for (const question of ORDERED_BASE_QUESTIONS) {
@@ -86,7 +97,7 @@ export function computeNextStep(answers: readonly StoredAnswer[]): NextStep {
     }
   }
 
-  const { scores, tie } = resolveToFinalists(answers)
+  const { scores, tie } = resolveToFinalists(answers, usesLegacyScoring(version))
 
   if (!tie.done) {
     const items = TIEBREAK_ITEMS[tie.pair]
@@ -119,8 +130,8 @@ export function computeNextStep(answers: readonly StoredAnswer[]): NextStep {
 }
 
 /** Ожидаемый сейчас вопрос — `null`, если тест уже готов к результату. */
-export function expectedQuestionId(answers: readonly StoredAnswer[]): string | null {
-  const next = computeNextStep(answers)
+export function expectedQuestionId(answers: readonly StoredAnswer[], version: string = TEST_VERSION): string | null {
+  const next = computeNextStep(answers, version)
   return next.kind === 'ready' ? null : next.question_id
 }
 
@@ -151,19 +162,20 @@ export function applyAnswer(
 }
 
 /** Всё пройдено, включая шаг выбора портрета — можно считать финальный результат. */
-export function isReadyForResult(answers: readonly StoredAnswer[]): boolean {
-  return computeNextStep(answers).kind === 'ready'
+export function isReadyForResult(answers: readonly StoredAnswer[], version: string = TEST_VERSION): boolean {
+  return computeNextStep(answers, version).kind === 'ready'
 }
 
 /**
- * Итог теста: тип, крыло, confidence, раннер-ап, путь tiebreak и флаг
- * переопределения портрета. Вызывающий обязан заранее убедиться в
+ * Итог теста включает расчётный тип и отдельный выбор портрета (с v1.1).
+ * Вызывающий обязан заранее убедиться в
  * `isReadyForResult()` — иначе портрет ещё не выбран и результат будет
  * посчитан по неполным данным (роут `submit` отдаёт на это 422).
  */
-export function computeResult(answers: readonly StoredAnswer[]): TestResult {
+export function computeResult(answers: readonly StoredAnswer[], version: string = TEST_VERSION): TestResult {
+  const legacy = usesLegacyScoring(version)
   const answered = answersMap(answers)
-  const { scores, base, tie } = resolveToFinalists(answers)
+  const { scores, base, tie } = resolveToFinalists(answers, legacy)
 
   if (!tie.done) {
     // Не должно случиться при вызове после isReadyForResult(), но не бросаем
@@ -172,21 +184,22 @@ export function computeResult(answers: readonly StoredAnswer[]): TestResult {
     return {
       type: fallbackType,
       wing: fallbackType,
+      wing_tied: false,
+      portrait_type: null,
       confidence: 0.45,
       runner_up: fallbackType,
       tiebreak_path: [],
       borderline: true,
-      version: TEST_VERSION,
+      version,
       switched: false,
     }
   }
 
   const finalists = buildFinalists(tie.socialPole, tie.harmPole, tie.log, scores)
   const pickedRaw = answered.get(PORTRAIT_PICK_ID)
-  const picked = pickedRaw ? (Number(pickedRaw) as EnneagramType) : finalists.winner
-
-  const switched = picked !== finalists.winner
-  const type = switched ? picked : finalists.winner
+  const picked = [finalists.winner, finalists.runnerUp].find((type) => String(type) === pickedRaw)
+  const type = legacy ? picked ?? finalists.winner : finalists.winner
+  const switched = type !== finalists.winner
   const runnerUp = switched ? finalists.winner : finalists.runnerUp
 
   const confidence = computeConfidence({
@@ -197,7 +210,7 @@ export function computeResult(answers: readonly StoredAnswer[]): TestResult {
     switched,
   })
 
-  const wing = pickWing(type, scores)
+  const { wing, tied } = assessWing(type, scores)
   const tiebreakPath = tie.log.flatMap((round) => {
     const items = TIEBREAK_ITEMS[pairKey(round.typeA, round.typeB)]
     return items ? items.map((item) => item.id) : []
@@ -206,11 +219,13 @@ export function computeResult(answers: readonly StoredAnswer[]): TestResult {
   return {
     type,
     wing,
+    wing_tied: !legacy && tied,
+    portrait_type: legacy ? null : picked ?? null,
     confidence,
     runner_up: runnerUp,
     tiebreak_path: tiebreakPath,
     borderline: confidence < BORDERLINE_THRESHOLD,
-    version: 'v1.0',
+    version: legacy ? 'v1.0' : version,
     switched,
   }
 }

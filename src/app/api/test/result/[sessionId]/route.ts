@@ -63,13 +63,9 @@ export async function GET(
       return apiError(404, ERROR_CODES.RESULT_NOT_READY, 'Тест не завершён')
     }
 
-    // «Альтернативный» портрет (раннер-ап) показываем только когда выбор был
-    // реально близким — был тай-брейк между кандидатами, или итоговая
-    // уверенность и так низкая (edge case 8). На уверенных результатах без
-    // тай-брейка запрашиваем только один тип, как и раньше — без изменений
-    // в размере ответа/числе запросов на самом частом случае.
     const hadTiebreak = result.tiebreak_path.length > 0
-    const showAlternative = hadTiebreak || result.borderline
+    const portraitDisagrees = result.portrait_type !== null && result.portrait_type !== result.type
+    const showAlternative = hadTiebreak || result.borderline || portraitDisagrees
     const typesToFetch = showAlternative ? [result.type, result.runner_up] : [result.type]
 
     const { data: descriptions, error: descriptionError } = await supabase
@@ -103,9 +99,12 @@ export async function GET(
       type: result.type,
       title: description?.title ?? TYPE_META[result.type].title,
       wing: result.wing,
+      wing_tied: result.wing_tied,
+      portrait_type: result.portrait_type,
       confidence: result.confidence,
       runner_up: result.runner_up,
       borderline: result.borderline,
+      // Эти поля описывают показанный тип; баллы ответов хранятся в axis_scores.
       social_triad: description?.social_triad ?? TYPE_META[result.type].social,
       harmonic_triad: description?.harmonic_triad ?? TYPE_META[result.type].harmonic,
       center: description?.center ?? TYPE_META[result.type].center,

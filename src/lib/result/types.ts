@@ -17,6 +17,8 @@ export interface TestResultData {
   type: number
   title: string
   wing: number
+  wing_tied: boolean
+  portrait_type: number | null
   confidence: number
   runner_up: number
   borderline: boolean
@@ -27,6 +29,6 @@ export interface TestResultData {
   short_summary: string | null
   wings: { left: WingMeta; right: WingMeta } | null
   captured: boolean
-  /** Портрет раннер-апа — только когда выбор был близким (тай-брейк/низкая уверенность), иначе `null`. */
+  /** Второй портрет после уточнений, при пограничном результате или расхождении с выбором портрета. */
   alternative: AlternativeTypeData | null
 }

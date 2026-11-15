@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     const { data: session, error: sessionError } = await supabase
       .from('test_sessions')
-      .select('id, status, answers, result, lead_id')
+      .select('id, status, answers, result, lead_id, version')
       .eq('id', sessionId)
       .maybeSingle()
 
@@ -90,12 +90,12 @@ export async function POST(request: NextRequest) {
     const answers = parseStoredAnswers(session.answers)
     // Готовность = все 15 базовых вопросов + разрешённые спорные пары + шаг
     // выбора портрета (см. computeNextStep в flow.ts) — не только счётчик 15.
-    if (!isReadyForResult(answers)) {
+    if (!isReadyForResult(answers, session.version)) {
       return apiError(422, ERROR_CODES.INSUFFICIENT_ANSWERS, 'Ответьте на все вопросы')
     }
 
     const scores = scoreAnswers(answers)
-    const result = computeResult(answers)
+    const result = computeResult(answers, session.version)
     logDebugSnapshot(sessionId, answers, result)
 
     const { error: updateError } = await supabase

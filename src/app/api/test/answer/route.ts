@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     const { data: session, error: sessionError } = await supabase
       .from('test_sessions')
-      .select('id, status, answers')
+      .select('id, status, answers, version')
       .eq('id', sessionId)
       .maybeSingle()
 
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     // у которого нет статичного банка вариантов (кандидаты зависят от ответов).
     const priorIndex = answers.findIndex((answer) => answer.q === questionId)
     const priorAnswers = priorIndex >= 0 ? answers.slice(0, priorIndex) : answers
-    const stepAtThisPoint = computeNextStep(priorAnswers)
+    const stepAtThisPoint = computeNextStep(priorAnswers, session.version)
 
     if (stepAtThisPoint.kind === 'ready' || stepAtThisPoint.question_id !== questionId) {
       return apiError(
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     }
 
     return apiSuccess({
-      next: computeNextStep(updatedAnswers),
+      next: computeNextStep(updatedAnswers, session.version),
       progress: buildProgress(updatedAnswers),
       matrix: buildMatrix(scores),
     })

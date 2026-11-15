@@ -6,27 +6,23 @@ interface AlternativeTypeSwitchProps {
   viewing: boolean
   primaryType: number
   alternativeType: number
+  portraitDisagrees: boolean
   onToggle: () => void
 }
 
-/**
- * Переключатель на второй вариант (раннер-ап) — показывается только когда
- * выбор алгоритма был близким (тай-брейк или низкая уверенность, см.
- * `TestResultData.alternative` в `/api/test/result/[sessionId]`). Ничего не
- * пересчитывает и не трогает сессию — просто переключает, какой из уже
- * посчитанных портретов показан на экране.
- */
+/** Переключает описания двух типов в сохранённом результате. */
 export function AlternativeTypeSwitch({
   viewing,
   primaryType,
   alternativeType,
+  portraitDisagrees,
   onToggle,
 }: AlternativeTypeSwitchProps) {
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
-      {!viewing && (
-        <p className="text-xs text-muted-foreground">
-          Выбор теста был близким — тип {alternativeType} тоже был реальным кандидатом.
+      {portraitDisagrees && (
+        <p className="text-sm text-muted-foreground">
+          По ответам ближе тип {primaryType}. В конце теста ты выбрал(а) описание типа {alternativeType}.
         </p>
       )}
       <Button
@@ -35,7 +31,7 @@ export function AlternativeTypeSwitch({
         onClick={onToggle}
         className="w-full justify-center whitespace-normal sm:w-auto"
       >
-        {viewing ? `← Вернуться к Типу ${primaryType}` : `Не откликается? Смотри Тип ${alternativeType} →`}
+        {viewing ? `Вернуться к типу ${primaryType}` : `Посмотреть описание типа ${alternativeType}`}
       </Button>
     </div>
   )

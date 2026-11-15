@@ -24,6 +24,8 @@ const enneagramTypeSchema = z
 const testResultSchema = z.object({
   type: enneagramTypeSchema,
   wing: enneagramTypeSchema,
+  wing_tied: z.boolean().default(false),
+  portrait_type: enneagramTypeSchema.nullable().default(null),
   confidence: z.number().min(0).max(1),
   runner_up: enneagramTypeSchema,
   tiebreak_path: z.array(z.string()).default([]),
