@@ -6,8 +6,10 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { toast } from '@/components/ui/toast'
 import { apiGet } from '@/lib/fetch-api'
 import type { TestResultData } from '@/lib/result/types'
+import { clearLastTestResult, clearTestState } from '@/lib/test/storage'
 import { AlternativeTypeSwitch } from './AlternativeTypeSwitch'
 import { ConfidenceBadge } from './ConfidenceBadge'
 import { ResultSkeleton } from './ResultSkeleton'
@@ -28,8 +30,25 @@ interface ResultScreenProps {
 
 export function ResultScreen({ sessionId }: ResultScreenProps) {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
+  const [manualResultUrl, setManualResultUrl] = useState('')
   // Чисто отображение уже посчитанного раннер-апа — сессию/тест это не трогает.
   const [viewingAlternative, setViewingAlternative] = useState(false)
+
+  function resetTest() {
+    clearLastTestResult(sessionId)
+    clearTestState()
+  }
+
+  async function copyResultLink() {
+    const url = new URL(`/test/result/${sessionId}`, window.location.origin).href
+    try {
+      await navigator.clipboard.writeText(url)
+      setManualResultUrl('')
+      toast.add({ title: 'Ссылка скопирована', type: 'success' })
+    } catch {
+      setManualResultUrl(url)
+    }
+  }
 
   // `load` — `async`: см. пояснение в DashboardScreen/useTestSession про
   // react-hooks/set-state-in-effect.
@@ -140,6 +159,34 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
           Посмотреть совместимость →
         </a>
       </section>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap gap-3">
+          <Button type="button" variant="outline" size="lg" onClick={copyResultLink}>
+            Скопировать ссылку
+          </Button>
+          <Button
+            render={<Link href="/test" onNavigate={resetTest} />}
+            nativeButton={false}
+            variant="outline"
+            size="lg"
+          >
+            Пройти заново
+          </Button>
+        </div>
+        {manualResultUrl && (
+          <label className="flex flex-col gap-2 text-sm text-muted-foreground">
+            Скопируй ссылку вручную
+            <input
+              type="text"
+              readOnly
+              value={manualResultUrl}
+              onFocus={(event) => event.currentTarget.select()}
+              className="rounded-lg border border-border bg-background px-3 py-2 text-foreground"
+            />
+          </label>
+        )}
+      </div>
 
       {/* Чертёж-интерфейса-Эннеаграмма.md, «Тест (результат)»: выход для тех,
           кто не готов оставить контакт — доступен всегда, без формы. Внешняя

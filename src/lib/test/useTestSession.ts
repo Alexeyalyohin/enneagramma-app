@@ -17,7 +17,15 @@ import { useRouter } from 'next/navigation'
 import { apiGet, apiPost } from '@/lib/fetch-api'
 import { readTestAttribution } from './attribution'
 import type { MatrixSnapshot, NextStep, TestProgress } from '@/lib/test-engine'
-import { clearTestState, loadTestState, saveTestState, type HistoryEntry } from './storage'
+import {
+  clearTestState,
+  loadLastTestResult,
+  loadTestState,
+  saveLastTestResult,
+  saveTestState,
+  type HistoryEntry,
+  type LastTestResult,
+} from './storage'
 
 interface SessionResponse {
   session_id: string
@@ -59,6 +67,7 @@ const RESTART_CODES = new Set(['SESSION_ABANDONED', 'SESSION_NOT_FOUND', 'SESSIO
 
 export interface UseTestSessionResult {
   phase: Phase
+  lastResult: LastTestResult | null
   step: NextStep | null
   progress: TestProgress | null
   matrix: MatrixSnapshot | null
@@ -79,6 +88,7 @@ export function useTestSession(): UseTestSessionResult {
   const router = useRouter()
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [phase, setPhase] = useState<Phase>('loading')
+  const [lastResult, setLastResult] = useState<LastTestResult | null>(null)
   const [step, setStep] = useState<NextStep | null>(null)
   const [progress, setProgress] = useState<TestProgress | null>(null)
   const [matrix, setMatrix] = useState<MatrixSnapshot | null>(null)
@@ -129,6 +139,8 @@ export function useTestSession(): UseTestSessionResult {
     // тот же приём), а лениво инициализировать стейт из localStorage нельзя:
     // на сервере window нет, и лишний setState здесь всё равно неизбежен.
     async function init() {
+      const lastResult = loadLastTestResult()
+      setLastResult(lastResult)
       const stored = loadTestState()
       if (!stored) {
         // Первый заход — показываем интро (эталон ennea-test-v1_0.html,
@@ -158,6 +170,18 @@ export function useTestSession(): UseTestSessionResult {
           matrix: result.data.matrix,
           history: stored.history,
         })
+        return
+      }
+
+      if (result.error.code === 'SESSION_COMPLETED') {
+        // Сервер мог сохранить результат до обрыва ответа на submit.
+        const completed = lastResult?.sessionId === stored.sessionId
+          ? lastResult
+          : { sessionId: stored.sessionId }
+        saveLastTestResult(completed)
+        clearTestState()
+        setLastResult(completed)
+        setPhase('intro')
         return
       }
 
@@ -257,6 +281,7 @@ export function useTestSession(): UseTestSessionResult {
         setPhase('active')
         return
       }
+      saveLastTestResult({ sessionId: result.data.session_id, type: result.data.type })
       clearTestState()
       router.push(result.data.result_url)
     })
@@ -268,6 +293,7 @@ export function useTestSession(): UseTestSessionResult {
 
   return {
     phase,
+    lastResult,
     step,
     progress,
     matrix,
