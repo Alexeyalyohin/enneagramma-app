@@ -47,6 +47,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      test_session_funnel_archive: {
+        Row: {
+          id: string
+          created_at: string
+          version: string
+          question_5_answered: boolean
+          question_15_answered: boolean
+          archived_at: string
+        }
+        Insert: {
+          id: string
+          created_at: string
+          version: string
+          question_5_answered: boolean
+          question_15_answered: boolean
+          archived_at?: string
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          version?: string
+          question_5_answered?: boolean
+          question_15_answered?: boolean
+          archived_at?: string
+        }
+        Relationships: []
+      }
       club_subscriptions: {
         Row: {
           canceled_at: string | null
@@ -463,9 +490,23 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      test_funnel_sessions: {
+        Row: {
+          id: string | null
+          created_at: string | null
+          version: string | null
+          status: string | null
+          question_5_answered: boolean | null
+          question_15_answered: boolean | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      archive_abandoned_test_sessions: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       is_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
