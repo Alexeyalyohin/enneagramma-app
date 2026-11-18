@@ -12,7 +12,8 @@ import { recordEvent } from '@/lib/events'
 import { cleanTestAttribution } from '@/lib/test/attribution'
 import { toApiErrorResponse } from '@/lib/errors'
 import { logError } from '@/lib/logger'
-import { TEST_VERSION, buildMatrix, buildProgress, computeNextStep, emptyAxisScores } from '@/lib/test-engine'
+import { TEST_VERSION, buildProgress, computeNextStep } from '@/lib/test-engine'
+import { compatibilityMatrix, publicNextStep } from '@/lib/test/public-protocol'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -58,9 +59,9 @@ export async function POST(request: NextRequest) {
         first_block: 'triads',
         // Первый вопрос отдаём сразу: иначе клиенту нужен лишний round-trip,
         // а тест открывается во фрейме Tilda, где каждый запрос заметен.
-        next: computeNextStep([]),
+        next: publicNextStep(computeNextStep([])),
         progress: buildProgress([]),
-        matrix: buildMatrix(emptyAxisScores()),
+        matrix: compatibilityMatrix(),
       },
       201
     )

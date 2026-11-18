@@ -9,7 +9,8 @@
  * зеркало последнего успешного шага для UI.
  */
 
-import type { MatrixSnapshot, NextStep, TestProgress } from '@/lib/test-engine'
+import type { MatrixSnapshot, TestProgress } from '@/lib/test-engine'
+import type { PublicNextStep as NextStep } from './public-protocol'
 
 const STORAGE_KEY = 'enneagramma:test:v1'
 const LAST_RESULT_KEY = 'enneagramma:last-result:v1'

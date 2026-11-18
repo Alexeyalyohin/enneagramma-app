@@ -20,7 +20,8 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { isTestSessionExpired } from '@/lib/test/session-lifetime'
 import { toApiErrorResponse } from '@/lib/errors'
 import { logError } from '@/lib/logger'
-import { buildMatrix, buildProgress, computeNextStep, parseStoredAnswers, scoreAnswers } from '@/lib/test-engine'
+import { buildProgress, computeNextStep, parseStoredAnswers } from '@/lib/test-engine'
+import { compatibilityMatrix, publicNextStep } from '@/lib/test/public-protocol'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -59,13 +60,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ses
     }
 
     const answers = parseStoredAnswers(session.answers)
-    const scores = scoreAnswers(answers)
 
     return apiSuccess({
       session_id: session.id,
-      next: computeNextStep(answers, session.version),
+      next: publicNextStep(computeNextStep(answers, session.version)),
       progress: buildProgress(answers),
-      matrix: buildMatrix(scores),
+      matrix: compatibilityMatrix(),
     })
   } catch (error) {
     return toApiErrorResponse(error, 'api.test.session.get.failed')

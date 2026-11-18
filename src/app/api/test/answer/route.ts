@@ -14,11 +14,11 @@ import { ERROR_CODES, apiError, apiSuccess, readJsonBody } from '@/lib/api-respo
 import { RATE_LIMITS, enforceRateLimit } from '@/lib/rate-limit'
 import { createServiceClient } from '@/lib/supabase/service'
 import { isTestSessionExpired } from '@/lib/test/session-lifetime'
+import { compatibilityMatrix, internalChoice, internalQuestionId, publicNextStep } from '@/lib/test/public-protocol'
 import { toApiErrorResponse } from '@/lib/errors'
 import { logError } from '@/lib/logger'
 import {
   applyAnswer,
-  buildMatrix,
   buildProgress,
   computeNextStep,
   isValidStepChoice,
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       return apiError(400, ERROR_CODES.VALIDATION_ERROR, 'Проверьте session_id, question_id и choice')
     }
 
-    const { session_id: sessionId, question_id: questionId, choice } = parsed.data
+    const { session_id: sessionId, question_id: suppliedQuestionId, choice: suppliedChoice } = parsed.data
     const supabase = createServiceClient()
 
     const { data: session, error: sessionError } = await supabase
@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
     }
 
     const answers = parseStoredAnswers(session.answers)
+    const questionId = internalQuestionId(answers, computeNextStep(answers, session.version), suppliedQuestionId)
 
     // Принимаем либо ожидаемый сейчас вопрос, либо переответ на уже пройденный
     // (пользователь нажал «Назад»): для этого откатываем answers до состояния
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
     const priorIndex = answers.findIndex((answer) => answer.q === questionId)
     const priorAnswers = priorIndex >= 0 ? answers.slice(0, priorIndex) : answers
     const stepAtThisPoint = computeNextStep(priorAnswers, session.version)
+    const choice = internalChoice(stepAtThisPoint, suppliedChoice)
 
     if (stepAtThisPoint.kind === 'ready' || stepAtThisPoint.question_id !== questionId) {
       return apiError(
@@ -115,9 +117,9 @@ export async function POST(request: NextRequest) {
     }
 
     return apiSuccess({
-      next: computeNextStep(updatedAnswers, session.version),
+      next: publicNextStep(computeNextStep(updatedAnswers, session.version)),
       progress: buildProgress(updatedAnswers),
-      matrix: buildMatrix(scores),
+      matrix: compatibilityMatrix(),
     })
   } catch (error) {
     return toApiErrorResponse(error, 'api.test.answer.failed')
