@@ -13,6 +13,7 @@ import type { NextRequest } from 'next/server'
 import { ERROR_CODES, apiError, apiSuccess, readJsonBody } from '@/lib/api-response'
 import { RATE_LIMITS, enforceRateLimit } from '@/lib/rate-limit'
 import { createServiceClient } from '@/lib/supabase/service'
+import { isTestSessionExpired } from '@/lib/test/session-lifetime'
 import { toApiErrorResponse } from '@/lib/errors'
 import { logError } from '@/lib/logger'
 import {
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     const { data: session, error: sessionError } = await supabase
       .from('test_sessions')
-      .select('id, status, answers, version')
+      .select('id, status, answers, version, created_at')
       .eq('id', sessionId)
       .maybeSingle()
 
@@ -67,9 +68,8 @@ export async function POST(request: NextRequest) {
     if (session.status === 'completed') {
       return apiError(409, ERROR_CODES.SESSION_COMPLETED, 'Сессия уже завершена')
     }
-    // Брошенную >24 ч сессию крон помечает abandoned (edge case 6): дописывать
-    // в неё нельзя, но и «не найдена» — вранье, поэтому отдельный 409-код.
-    if (session.status === 'abandoned') {
+    // Проверяем возраст даже при задержке фоновой задачи abandon-sessions.
+    if (isTestSessionExpired(session)) {
       return apiError(409, ERROR_CODES.SESSION_ABANDONED, 'Сессия устарела. Пройдите тест заново')
     }
 

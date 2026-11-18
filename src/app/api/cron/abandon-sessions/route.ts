@@ -3,20 +3,18 @@
  * Помечает `test_sessions` в `in_progress` дольше 24 ч как `abandoned`
  * (US-001, критерий приёмки: «Незавершённая сессия старше 24 ч не показывает
  * результат — предлагает начать заново»; `/api/test/answer` и `/api/test/submit`
- * уже обрабатывают код `SESSION_ABANDONED`, этот крон — то, что реально
- * переводит сессию в этот статус).
+ * проверяют возраст сессии на каждом запросе; крон сохраняет этот статус в БД).
  */
 
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { verifyCronRequest } from '@/lib/cron-auth'
 import { createServiceClient } from '@/lib/supabase/service'
+import { TEST_SESSION_LIFETIME_MS } from '@/lib/test/session-lifetime'
 import { logError, logInfo } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-
-const ABANDON_AFTER_MS = 24 * 60 * 60 * 1000
 
 export async function GET(request: NextRequest) {
   if (!verifyCronRequest(request)) {
@@ -24,10 +22,10 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createServiceClient()
-  const cutoffIso = new Date(Date.now() - ABANDON_AFTER_MS).toISOString()
+  const cutoffIso = new Date(Date.now() - TEST_SESSION_LIFETIME_MS).toISOString()
 
   // Ошибка крона не критична (Чертёж: «лог ошибки, не критично») — сессии
-  // просто останутся in_progress до следующего успешного прогона.
+  // останутся in_progress в БД, но API уже отклоняет их по возрасту.
   const { data, error } = await supabase
     .from('test_sessions')
     .update({ status: 'abandoned' })
