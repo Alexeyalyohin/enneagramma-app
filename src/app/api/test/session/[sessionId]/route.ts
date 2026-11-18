@@ -17,6 +17,7 @@ import type { NextRequest } from 'next/server'
 import { ERROR_CODES, apiError, apiSuccess } from '@/lib/api-response'
 import { RATE_LIMITS, enforceRateLimit } from '@/lib/rate-limit'
 import { createServiceClient } from '@/lib/supabase/service'
+import { isTestSessionExpired } from '@/lib/test/session-lifetime'
 import { toApiErrorResponse } from '@/lib/errors'
 import { logError } from '@/lib/logger'
 import { buildMatrix, buildProgress, computeNextStep, parseStoredAnswers, scoreAnswers } from '@/lib/test-engine'
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ses
     const supabase = createServiceClient()
     const { data: session, error } = await supabase
       .from('test_sessions')
-      .select('id, status, answers, version')
+      .select('id, status, answers, version, created_at')
       .eq('id', parsed.data.sessionId)
       .maybeSingle()
 
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ses
     if (session.status === 'completed') {
       return apiError(409, ERROR_CODES.SESSION_COMPLETED, 'Сессия уже завершена')
     }
-    if (session.status === 'abandoned') {
+    if (isTestSessionExpired(session)) {
       return apiError(409, ERROR_CODES.SESSION_ABANDONED, 'Сессия устарела. Пройдите тест заново')
     }
 
