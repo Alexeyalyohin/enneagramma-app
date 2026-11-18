@@ -9,7 +9,6 @@
  * чтобы решить, показывать ли форму захвата.
  */
 
-import { z } from 'zod'
 import type { NextRequest } from 'next/server'
 import { ERROR_CODES, apiError, apiSuccess } from '@/lib/api-response'
 import { RATE_LIMITS, enforceRateLimit } from '@/lib/rate-limit'
@@ -18,11 +17,10 @@ import { recordEvent } from '@/lib/events'
 import { toApiErrorResponse } from '@/lib/errors'
 import { logError, logWarn } from '@/lib/logger'
 import { TYPE_META, parseTestResult } from '@/lib/test-engine'
+import { readResultSession } from '@/lib/result/session'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-
-const paramsSchema = z.object({ sessionId: z.uuid() })
 
 export async function GET(
   request: NextRequest,
@@ -32,28 +30,13 @@ export async function GET(
   if (limited) return limited
 
   try {
-    const parsed = paramsSchema.safeParse(await context.params)
-    // Кривой id и несуществующая сессия отвечают одинаково: не подтверждаем
-    // существование чужих сессий даже косвенно, кодом ошибки.
-    if (!parsed.success) {
-      return apiError(404, ERROR_CODES.RESULT_NOT_READY, 'Тест не завершён')
+    const { sessionId } = await context.params
+    const session = await readResultSession(sessionId)
+    if (!session) {
+      return apiError(404, ERROR_CODES.RESULT_NOT_FOUND, 'Результат не найден. Возможно, ссылка неполная')
     }
 
-    const sessionId = parsed.data.sessionId
-    const supabase = createServiceClient()
-
-    const { data: session, error: sessionError } = await supabase
-      .from('test_sessions')
-      .select('id, status, result, lead_id')
-      .eq('id', sessionId)
-      .maybeSingle()
-
-    if (sessionError) {
-      logError('api.test.result.select_failed', { session_id: sessionId }, sessionError)
-      return apiError(500, ERROR_CODES.INTERNAL_ERROR, 'Не удалось прочитать результат')
-    }
-
-    if (!session || session.status !== 'completed') {
+    if (session.status !== 'completed') {
       return apiError(404, ERROR_CODES.RESULT_NOT_READY, 'Тест не завершён')
     }
 
@@ -67,6 +50,7 @@ export async function GET(
     const portraitDisagrees = result.portrait_type !== null && result.portrait_type !== result.type
     const showAlternative = hadTiebreak || result.borderline || portraitDisagrees
     const typesToFetch = showAlternative ? [result.type, result.runner_up] : [result.type]
+    const supabase = createServiceClient()
 
     const { data: descriptions, error: descriptionError } = await supabase
       .from('type_descriptions')

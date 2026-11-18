@@ -21,6 +21,7 @@ import { WingHint } from './WingHint'
 type LoadState =
   | { kind: 'loading' }
   | { kind: 'not-ready' }
+  | { kind: 'not-found' }
   | { kind: 'error'; message: string }
   | { kind: 'loaded'; data: TestResultData }
 
@@ -56,6 +57,11 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
     setState({ kind: 'loading' })
     const result = await apiGet<TestResultData>(`/api/test/result/${sessionId}`)
     if (!result.ok) {
+      if (result.error.code === 'RESULT_NOT_FOUND') {
+        clearLastTestResult(sessionId)
+        setState({ kind: 'not-found' })
+        return
+      }
       if (result.error.code === 'RESULT_NOT_READY') {
         setState({ kind: 'not-ready' })
         return
@@ -75,6 +81,17 @@ export function ResultScreen({ sessionId }: ResultScreenProps) {
   }, [load])
 
   if (state.kind === 'loading') return <ResultSkeleton />
+
+  if (state.kind === 'not-found') {
+    return (
+      <div className="mx-auto flex w-full max-w-180 flex-col items-center gap-4 px-4 py-20 text-center">
+        <p className="text-base text-foreground">Результат не найден. Возможно, ссылка неполная</p>
+        <Button render={<Link href="/test" />} nativeButton={false}>
+          Пройти тест
+        </Button>
+      </div>
+    )
+  }
 
   if (state.kind === 'not-ready') {
     return (
