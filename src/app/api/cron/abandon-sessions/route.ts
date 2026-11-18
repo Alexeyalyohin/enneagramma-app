@@ -10,8 +10,8 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { verifyCronRequest } from '@/lib/cron-auth'
 import { createServiceClient } from '@/lib/supabase/service'
-import { TEST_SESSION_LIFETIME_MS } from '@/lib/test/session-lifetime'
-import { logError, logInfo } from '@/lib/logger'
+import { abandonExpiredTestSessions } from '@/lib/maintenance/test-sessions'
+import { toApiErrorResponse } from '@/lib/errors'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -21,24 +21,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: { code: 'UNAUTHORIZED', message: 'Cron only' } }, { status: 401 })
   }
 
-  const supabase = createServiceClient()
-  const cutoffIso = new Date(Date.now() - TEST_SESSION_LIFETIME_MS).toISOString()
-
-  // Ошибка крона не критична (Чертёж: «лог ошибки, не критично») — сессии
-  // останутся in_progress в БД, но API уже отклоняет их по возрасту.
-  const { data, error } = await supabase
-    .from('test_sessions')
-    .update({ status: 'abandoned' })
-    .eq('status', 'in_progress')
-    .lt('created_at', cutoffIso)
-    .select('id')
-
-  if (error) {
-    logError('cron.abandon_sessions.failed', { cutoff: cutoffIso }, error)
-    return NextResponse.json({ error: { code: 'INTERNAL_ERROR', message: error.message } }, { status: 500 })
+  try {
+    const count = await abandonExpiredTestSessions(createServiceClient())
+    return NextResponse.json({ data: { abandoned: count } })
+  } catch (error) {
+    return toApiErrorResponse(error, 'cron.abandon_sessions.failed')
   }
-
-  const count = data?.length ?? 0
-  logInfo('cron.abandon_sessions.done', { count, cutoff: cutoffIso })
-  return NextResponse.json({ data: { abandoned: count } })
 }
