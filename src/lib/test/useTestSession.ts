@@ -16,7 +16,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiGet, apiPost } from '@/lib/fetch-api'
 import { readTestAttribution } from './attribution'
-import type { MatrixSnapshot, NextStep, TestProgress } from '@/lib/test-engine'
+import type { MatrixSnapshot, TestProgress } from '@/lib/test-engine'
+import type { PublicNextStep as NextStep } from './public-protocol'
 import {
   clearTestState,
   loadLastTestResult,
