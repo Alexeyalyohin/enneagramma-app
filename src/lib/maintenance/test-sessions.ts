@@ -23,7 +23,7 @@ export async function abandonExpiredTestSessions(supabase: ServiceClient, now = 
   return count
 }
 
-/** Пока только оценка объёма очистки: записи и ответы не удаляются. */
+/** По умолчанию только подсчёт; удаление включается отдельным флагом после миграции. */
 export async function runTestSessionMaintenance(now = Date.now()) {
   const supabase = createServiceClient()
   const abandoned = await abandonExpiredTestSessions(supabase, now)
@@ -40,7 +40,20 @@ export async function runTestSessionMaintenance(now = Date.now()) {
   if (error) throw new Error(`Session retention preview failed (${error.code})`)
   if (count === null) throw new Error('Session retention preview returned no count')
 
-  const summary = { abandoned, retention_candidates: count, retention_days: RETENTION_DAYS, dry_run: true }
+  const dryRun = process.env['SESSION_RETENTION_DELETE_ENABLED'] !== '1'
+  let deleted = 0
+  if (!dryRun) {
+    const { data, error: cleanupError } = await supabase
+      .rpc('archive_abandoned_test_sessions')
+      .abortSignal(AbortSignal.timeout(REQUEST_TIMEOUT_MS))
+    if (cleanupError) throw new Error(`Session retention cleanup failed (${cleanupError.code})`)
+    if (typeof data !== 'number' || !Number.isInteger(data) || data < 0 || data > 100) {
+      throw new Error('Session retention cleanup returned an invalid count')
+    }
+    deleted = data
+  }
+
+  const summary = { abandoned, retention_candidates: count, retention_days: RETENTION_DAYS, dry_run: dryRun, deleted }
   logInfo('maintenance.test_sessions.done', summary)
   return summary
 }

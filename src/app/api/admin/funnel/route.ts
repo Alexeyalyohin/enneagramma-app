@@ -47,16 +47,15 @@ async function countTestSessions(
   sinceIso: string
 ): Promise<number> {
   let query = client
-    .from('test_sessions')
+    .from('test_funnel_sessions')
     .select('id', { count: 'exact', head: true })
     .gte('created_at', sinceIso)
 
-  // Первые 15 ответов всегда относятся к основным вопросам, дальше идут уточнения.
-  // Проверяем ID сохранённого ответа, чтобы отличать отсутствующую позицию от заполненной.
+  // Представление объединяет текущие сессии и статистику очищенных тестов.
   if (step === 'test_question_5_answered') {
-    query = query.not('answers->4->>q', 'is', null)
+    query = query.eq('question_5_answered', true)
   } else if (step === 'test_question_15_answered') {
-    query = query.not('answers->14->>q', 'is', null)
+    query = query.eq('question_15_answered', true)
   } else if (step === 'test_completed') {
     query = query.eq('status', 'completed')
   }
