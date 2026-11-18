@@ -20,8 +20,10 @@ import type { NextResponse } from 'next/server'
 
 /** Лимиты запросов в минуту (Чертёж, БЛОК 5 «Rate limiting»). */
 export const RATE_LIMITS = {
-  /** `/api/test/*` — 60/мин: тест — это 15+ быстрых ответов подряд. */
+  /** Чтение и ответы теста — 60/мин: тест — это 15+ быстрых ответов подряд. */
   test: 60,
+  /** Создание новых сессий — отдельные 10/мин, не расходует лимит ответов. */
+  testSessionCreate: 10,
   /** `/api/leads/capture` — 10/мин. */
   leadsCapture: 10,
   /**
