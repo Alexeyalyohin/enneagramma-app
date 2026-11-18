@@ -1,6 +1,6 @@
 /**
  * POST /api/test/session — создать сессию теста.
- * Чертёж.md, БЛОК 3, GROUP «Тест». Публичный роут, rate-limit 60/мин на IP.
+ * Чертёж.md, БЛОК 3, GROUP «Тест». Публичный роут, rate-limit 10/мин на IP.
  */
 
 import { z } from 'zod'
@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic'
 const bodySchema = z.object({ utm: z.unknown().optional() })
 
 export async function POST(request: NextRequest) {
-  const limited = enforceRateLimit(request, 'test', RATE_LIMITS.test)
+  const limited = enforceRateLimit(request, 'test-session-create', RATE_LIMITS.testSessionCreate)
   if (limited) return limited
 
   try {
